@@ -58,17 +58,16 @@ install_packages(packages_to_install_and_load)
 
 # 🟥 Define functions #########################################################################
 ## 🟧 Data Random sampling ====================================================================
-### 🟨 Sampling function  --------------------------------------------------------------------------------------
-Data_Sampling_for_One_Combination = function(Demo, 
-                                             FC_Curves,
-                                             FC_Matrix,
-                                             Pipeline = c("FunImgARCWSF", "FunImgARglobalCWSF"),
-                                             BandType = c("MB", "SB"),
-                                             Diagnosis = c("AD", "CN"),
-                                             proportion = c(0.1, 0.9),
-                                             sample_size = c(100, 500, 1000),
-                                             seed,
-                                             path_save){
+Data_Sampling = function(Demo, 
+                         FC_Curves,
+                         FC_Matrix = NULL,
+                         Pipeline = c("FunImgARCWSF", "FunImgARglobalCWSF"),
+                         BandType = c("MB", "SB"),
+                         Diagnosis = c("AD", "CN"),
+                         proportion = c(0.1, 0.9),
+                         sample_size = c(100, 500, 1000),
+                         seed,
+                         path_save){
   # ✅Arguments =================================================================== 
   # FC_Curves: List of 164 region
   # Demo: subjects list
@@ -166,36 +165,6 @@ Data_Sampling_for_One_Combination = function(Demo,
 
 
 
-### 🟨 Sampling function for each combination --------------------------------------------------------------------------------------
-# Data_Sampling_Combination = function(Demo,
-#                                      FC_Curves,
-#                                      FC_Matrix,
-#                                      Pipeline,
-#                                      BandType,
-#                                      Diagnosis,
-#                                      proportion,
-#                                      sample_size,
-#                                      seed,
-#                                      path_save){
-#   for(prop in proportion){
-#     for(n in sample_size){
-#       Data_Sampling(Demo = Demo,
-#                     FC_Curves = FC_Curves,
-#                     FC_Matrix = FC_Matrix,
-#                     Pipeline = Pipeline,
-#                     BandType = BandType,
-#                     Diagnosis = Diagnosis,
-#                     proportion = prop,
-#                     sample_size = n,
-#                     seed = seed,
-#                     path_save = path_save)
-#     }
-#   }  
-# }
-
-
-
-
 
 
 
@@ -258,11 +227,18 @@ Smoothing_by_Bspline = function(Sampled_Data, path_save){
   #   saveRDS(ith_Smoothing_Results, paste0(ith_path_save, "/Smoothed FC Curves using Bspline.rds"))
   # }
   
+  # Extract FC curves only
   FC_Curves = Sampled_Data$FC_Curves
   
+  # Extract Brain regions
+  Brain_Regions = names(FC_Curves)
+  
+  # Setting path
   path_Export = paste0(path_save, "/", Sampled_Data$save_folder_name)
   
-  Smoothed_Data.list = lapply(seq_along(Sampled_Data$FC_Curves), function(k){
+  
+  Smoothed_Data.list = lapply(seq_along(FC_Curves), function(k){
+    
     kth_Region = FC_Curves[[k]]
     
     kth_x = kth_Region[,1]
@@ -278,10 +254,11 @@ Smoothing_by_Bspline = function(Sampled_Data, path_save){
                                    argvals = kth_x), 
                     best.criterion = "gcv",
                     path_Export = paste0(path_Export , "/Smoothed FC Curves using Bspline"), 
-                    file.name = paste0(fit_length(k, 3), "_", names(ith_FC_Curves)[k]),
+                    file.name = paste0(fit_length(k, 3), "_", Brain_Regions[k]),
                     save_rds = F,
                     save_plot = F)    
-  }) %>% setNames(names(Sampled_Data$FC_Curves))
+    
+  }) %>% setNames(Brain_Regions)
   
   tictoc::toc()
   
@@ -399,7 +376,7 @@ Generate_True_Responses = function(Smoothed_Results, True_Coef_Functions, cutoff
     
   
   ## 🟨 Decide category by probabilities ==========================================================================  
-  Category = ifelse(phat > cutoff, 1, 0)
+  Category = ifelse(p > cutoff, 1, 0)
   
   
   
@@ -415,19 +392,22 @@ Generate_True_Responses = function(Smoothed_Results, True_Coef_Functions, cutoff
 
 ## 🟧 FPCA =====================================================================
 FPCA = function(Smoothed_Results, path_save, save_folder, export_result, export_plot){
+  
   FPCA_Results = list()
   
   tictoc::tic()
-  
   for(i in seq_along(Smoothed_Results)){
     
-    
+    tictoc::tic()  
     FPCA_Results[[i]] = FDA___fPCA(fdobj = Smoothed_Results[[i]]$smoothing$fd,
                                    threshold = 0.9,
                                    path_Export = paste0(path_save, "/", save_folder, "/FPCA"),
                                    file.name = names(Smoothed_Results)[i], 
                                    export_result = export_result,
                                    export_plot = export_plot)
+    
+    cat("\n", crayon::green("FPCA is done:"), crayon::red(names(Smoothed_Results)[i]) ,"\n")
+    tictoc::toc()
   }
   
   tictoc::toc()
@@ -566,6 +546,7 @@ Simulation  = function(Demo,
                        sample_size,
                        seed,
                        num_p_nonzero,
+                       cutoff,
                        path_save){
   # ✅ Data Sampling --------------------------------------------------------------------
   Sampled_Data = Data_Sampling(Demo,
@@ -577,14 +558,12 @@ Simulation  = function(Demo,
                                proportion,
                                sample_size,
                                seed,
-                               cutoff= 0.5, 
                                path_save)
-          
+  
   
   
   # ✅ Smoothing --------------------------------------------------------------------
-  path_Export = paste0(path_save,"/", Sampled_Data$save_folder_name)
-  Smoothed_Results = Smoothing_by_Bspline(Sampled_Data, path_Export)
+  Smoothed_Results = Smoothing_by_Bspline(Sampled_Data, path_save)
   
   
   
@@ -600,7 +579,6 @@ Simulation  = function(Demo,
   
   # ✅ FPCA --------------------------------------------------------------------
   FPCA_Results = FPCA(Smoothed_Results, path_save, Sampled_Data$save_folder_name, export_result = F, export_plot = F)
-  
   
   
   
@@ -622,12 +600,13 @@ Simulation  = function(Demo,
 path_save = "/Volumes/Backup_SSD/Backup___Dropbox/@DataAnalysis/✴️DataAnalysis___FDA on RS-fMRI FC Euclidean/6.Simulation"
 
 # Data
-Demo = read.csv("/Users/Ido/Library/CloudStorage/Dropbox/@DataAnalysis/㊙️CommonData___ADNI___RS-fMRI___BOLD/RS.fMRI___Subjects.Lists/Subjects_Lists_Exported/Final/[Final_Selected]_Subjects_list_(Selected_Variables).csv")
-FC_Curves = readRDS("/Users/Ido/Library/CloudStorage/Dropbox/@DataAnalysis/✴️DataAnalysis___FDA on RS-fMRI FC Euclidean/1.Sorting FC by Euclidean distance/Sorted.FC.by.Dist___FunImgARglobalCWSF.rds")
-FC_Matrix = readRDS("/Users/Ido/Library/CloudStorage/Dropbox/@DataAnalysis/㊙️CommonData___ADNI___RS-fMRI___BOLD/Functional Connectivity/FunImgARglobalCWSF/ROI___AAL3___FunImgARglobalCWSF___Static___Pearson___FisherZ___Combined.by.Each.Region/FC_Combined_by_Regions.rds")
+Demo = read.csv("/Volumes/Backup_SSD/Backup___Dropbox/@DataAnalysis/㊙️CommonData___ADNI___RS-fMRI___BOLD/RS.fMRI___Subjects.Lists/Subjects_Lists_Exported/Final/[Final_Selected]_Subjects_list_(Selected_Variables).csv")
+FC_Curves = readRDS("/Volumes/Backup_SSD/Backup___Dropbox/@DataAnalysis/✴️DataAnalysis___FDA on RS-fMRI FC Euclidean/1.Sorting FC by Euclidean distance/Sorted.FC.by.Dist___FunImgARglobalCWSF.rds")
+# FC_Matrix = readRDS("/Users/Ido/Library/CloudStorage/Dropbox/@DataAnalysis/㊙️CommonData___ADNI___RS-fMRI___BOLD/Functional Connectivity/FunImgARglobalCWSF/ROI___AAL3___FunImgARglobalCWSF___Static___Pearson___FisherZ___Combined.by.Each.Region/FC_Combined_by_Regions.rds")
 
 # Seed : 100 seed for 100 times repetition for each scenario
 Seed_Seq = seq(1,5000, by = 50)[1:100]
+# seed = Seed_Seq[1]
 
 # Arguments
 Total_proportion = list(c(0.1, 0.9), c(0.2, 0.8), c(0.3, 0.7), c(0.4, 0.6), c(0.5, 0.5))
@@ -637,11 +616,10 @@ Total_num_p_nonzero = c(5,10,20)
 Pipeline = "FunImgARglobalCWSF"
 BandType = "SB"
 Diagnosis = c("AD", "CN")
-
 proportion = Total_proportion[[1]]
 sample_size = Total_sample_size[1]
 num_p_nonzero = Total_num_p_nonzero[1]
-
+cutoff = 0.5
 
 
 ## 🟧 Repeat Simulation =====================================================
