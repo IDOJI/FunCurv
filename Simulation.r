@@ -412,57 +412,34 @@ Generate_True_Responses = function(Smoothed_Results, True_Coef_Functions, cutoff
 
 
   
-  
-  
+
 ## 🟧 FPCA =====================================================================
-FPCA = function(Smoothed_Results, path_save){
+FPCA = function(Smoothed_Results, path_save, save_folder, export_result, export_plot){
+  FPCA_Results = list()
+  
+  tictoc::tic()
   
   for(i in seq_along(Smoothed_Results)){
     
-    ith_Smoothed_Results = Smoothed_Results[[i]]$smoothing
     
-    
-    
+    FPCA_Results[[i]] = FDA___fPCA(fdobj = Smoothed_Results[[i]]$smoothing$fd,
+                                   threshold = 0.9,
+                                   path_Export = paste0(path_save, "/", save_folder, "/FPCA"),
+                                   file.name = names(Smoothed_Results)[i], 
+                                   export_result = export_result,
+                                   export_plot = export_plot)
   }
-  FPCA_Train = lapply(seq_along(Smoothing_Train.list), function(k){
-    
-    kth_Regions = names(kth_Smoothing)
-    
-    tictoc::tic()
-    
-    kth_FPCA = lapply(seq_along(kth_Smoothing), function(i){
-      
-      FDA___fPCA(fdobj = kth_Smoothing[[i]]$smoothing$fd,
-                 threshold = 0.9,
-                 path_Export = paste0(path_FPCA, "/", Names_Smoothing_Train[k]),
-                 file.name = kth_Regions[i])
-      
-    }) %>% setNames(kth_Regions)
-    
-    saveRDS(kth_FPCA, paste0(path_FPCA, "/FPCA___", Names_Smoothing_Train[k], ".rds"))
-    
-    
-    tictoc::toc()
-    
-    
-    cat("\n", paste0(crayon::bgRed(basename(Names_Smoothing_Train[k])), crayon::green(" is done!")) ,"\n")
-  })
-
+  
+  tictoc::toc()
+  
+  names(FPCA_Results) = names(Smoothed_Results)
+  
+  return(FPCA_Results)
+  
 }
 
 
-
-
-
-# Load data
-path_FPCA_Train = list.files(path_FPCA, full.name = T, pattern = "\\.rds$") %>% 
-  grep("Scores", ., value = T, invert = T)
-Names_FPCA_Train = path_FPCA_Train %>% basename_sans_ext()
-FPCA_Train.list = lapply(path_FPCA_Train, readRDS) %>% setNames(Names_FPCA_Train)
-
-
-
-
+## 🟧 FPCA =====================================================================
 
 ## 🟨 Export FPCA socres for Train ==================================================================================
 # Extract_fPCA_Scores_with_GroupNums = function(FPCA, path_Export, File.Name){
@@ -619,7 +596,12 @@ Simulation  = function(Demo,
   # ✅ Generate True response variables --------------------------------------------------------------------
   True_Responses = Generate_True_Responses(Smoothed_Results, True_Coef_Functions, cutoff)
   
-  True_Responses$Category %>% table
+  
+  
+  # ✅ FPCA --------------------------------------------------------------------
+  FPCA_Results = FPCA(Smoothed_Results, path_save, Sampled_Data$save_folder_name, export_result = F, export_plot = F)
+  
+  
   
   
   # ✅ Dimension Reduction on FC Matrices --------------------------------------------------------------------
