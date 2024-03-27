@@ -150,7 +150,9 @@ fs::dir_create(path_Save, recurse = T)
 
 for(i in 1:length(Subjects_List.list)){
   
-  ith_Splitted_Data = SUB___Fold(Data = Subjects_List.list[[i]], Var_1 = "DEMO___DIAGNOSIS_NEW", y_Var = "DEMO___DIAGNOSIS_NEW")
+  ith_Splitted_Data = SUB___Fold(Data = Subjects_List.list[[i]], 
+                                 Var_1 = "DEMO___DIAGNOSIS_NEW", 
+                                 y_Var = "DEMO___DIAGNOSIS_NEW")
   
   saveRDS(ith_Splitted_Data, paste0(path_Save, "/", names(Subjects_List.list)[i], ".rds"))
   
@@ -328,27 +330,27 @@ Names_Smoothing_Train = names(Smoothing_Train.list)
 
 # (@Completed) compute FPCA 
 # FPCA_Train = lapply(seq_along(Smoothing_Train.list), function(k){
-#   
+# 
 #   kth_Smoothing = Smoothing_Train.list[[k]]
-#   
+# 
 #   kth_Regions = names(kth_Smoothing)
-#   
+# 
 #   tictoc::tic()
 # 
 #   kth_FPCA = lapply(seq_along(kth_Smoothing), function(i){
-#     
-#     FDA___fPCA(fdobj = kth_Smoothing[[i]]$smoothing$fd, 
+# 
+#     FDA___fPCA(fdobj = kth_Smoothing[[i]]$smoothing$fd,
 #                threshold = 0.9,
-#                path_Export = paste0(path_FPCA, "/", Names_Smoothing_Train[k]), 
+#                path_Export = paste0(path_FPCA, "/", Names_Smoothing_Train[k]),
 #                file.name = kth_Regions[i])
-#     
+# 
 #   }) %>% setNames(kth_Regions)
-#   
+# 
 #   saveRDS(kth_FPCA, paste0(path_FPCA, "/FPCA___", Names_Smoothing_Train[k], ".rds"))
-#   
-#   
+# 
+# 
 #   tictoc::toc()
-#   
+# 
 # 
 #   cat("\n", paste0(crayon::bgRed(basename(Names_Smoothing_Train[k])), crayon::green(" is done!")) ,"\n")
 # })
@@ -365,43 +367,43 @@ FPCA_Train.list = lapply(path_FPCA_Train, readRDS) %>% setNames(Names_FPCA_Train
 
 
 ## 🟨 Export FPCA socres for Train ==================================================================================
-# Extract_fPCA_Scores_with_GroupNums = function(FPCA, path_Export, File.Name){
-#   # Export directory
-#   fs::dir_create(path_Export, recurse = T)
-#   
-#   # Group lasso를 위한 numbering
-#   FPCA_Scores_GroupNum = c()
-#   
-#   # Extract FPCA scores
-#   FPCA_Scores = lapply(seq_along(FPCA), function(i){
-#     
-#     ith_Region = FPCA[[i]]
-#     
-#     ith_PC_Scores = ith_Region$scores %>% as.data.frame
-#     
-#     names(ith_PC_Scores) = paste0(names(FPCA)[i], "___", 1:ncol(ith_PC_Scores))
-#     
-#     FPCA_Scores_GroupNum <<- c(FPCA_Scores_GroupNum, rep(i, times = ncol(ith_PC_Scores)))
-#     
-#     return(ith_PC_Scores)
-#   })
-#   
-#   FPCA_Scores = do.call(cbind, FPCA_Scores)
-#   
-#   FPCA_Combined = list(fPCA_Scores = FPCA_Scores, Features_Group_Nums = FPCA_Scores_GroupNum)
-#   
-#   saveRDS(FPCA_Combined, file = paste0(path_Export, "/Scores___", File.Name, "___Train.rds"))
+Extract_fPCA_Scores_with_GroupNums = function(FPCA, path_Export, File.Name){
+  # Export directory
+  fs::dir_create(path_Export, recurse = T)
+
+  # Group lasso를 위한 numbering
+  FPCA_Scores_GroupNum = c()
+
+  # Extract FPCA scores
+  FPCA_Scores = lapply(seq_along(FPCA), function(i){
+
+    ith_Region = FPCA[[i]]
+
+    ith_PC_Scores = ith_Region$scores %>% as.data.frame
+
+    names(ith_PC_Scores) = paste0(names(FPCA)[i], "___", 1:ncol(ith_PC_Scores))
+
+    FPCA_Scores_GroupNum <<- c(FPCA_Scores_GroupNum, rep(i, times = ncol(ith_PC_Scores)))
+
+    return(ith_PC_Scores)
+  })
+
+  FPCA_Scores = do.call(cbind, FPCA_Scores)
+
+  FPCA_Combined = list(fPCA_Scores = FPCA_Scores, Features_Group_Nums = FPCA_Scores_GroupNum)
+
+  saveRDS(FPCA_Combined, file = paste0(path_Export, "/Scores___", File.Name, "___Train.rds"))
+
+}
+
 # 
-# }
 # 
-# 
-# 
-# # Extracting scores from Train
-# FPCA_Scores = mapply(Extract_fPCA_Scores_with_GroupNums, 
-#                      FPCA = FPCA_Train.list, 
-#                      File.Name = Names_Smoothed_Files, 
-#                      path_Export = path_FPCA, 
-#                      SIMPLIFY = FALSE)
+# Extracting scores from Train
+FPCA_Scores = mapply(Extract_fPCA_Scores_with_GroupNums,
+                     FPCA = FPCA_Train.list,
+                     File.Name = Names_Smoothed_Files,
+                     path_Export = path_FPCA,
+                     SIMPLIFY = FALSE)
 
 
 

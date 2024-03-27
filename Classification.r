@@ -1,44 +1,15 @@
 # 🟥 NonGroupPenalty ################################################################
 
-
-
-
-
-
-
-
-
-
-#===============================================================================
 # Path
-#===============================================================================
 path_Data = path_Paper_Data %>% list.files(., pattern = "\\.rds$", full.names=T)
 Names_Data = basename_sans_ext(path_Data)
 
 
-
-
-
-
-#===============================================================================
 # Loading Data
-#===============================================================================
 # If there is no "NA" at the end of each file name, they include NA for Demo variables
 Data.list = lapply(path_Data, readRDS) %>% setNames(Names_Data)
 
-
-
-
-
-
-
-
-
-
-
-#===============================================================================
 # Define a Logistic-setting function
-#===============================================================================
 path_Export = ith_path_Export = paste0(path_Paper_Results, "/", Names_Data[2])
 # Binomial
 Logistic_Setting_1 = function(ith_Data, 
@@ -68,9 +39,7 @@ Logistic_Setting_1 = function(ith_Data,
   
   
   
-   Logistic = list(#----------------------------------------
-                  # Data Setting
-                  #----------------------------------------
+   Logistic = list(# Data Setting
                   Train_X = ith_Data$Train_X,
                   Train_y = ith_Data$Train_y,
                   Test_X = ith_Data$Test_X,
@@ -78,9 +47,7 @@ Logistic_Setting_1 = function(ith_Data,
                   Train_Folds_Index.vec = ith_Data$Folds.vec,
                   Train_Folds_Index.list = ith_Data$Folds.list,
                   Standardize = TRUE,
-                  #----------------------------------------
                   # Modeling Fitting
-                  #----------------------------------------
                   # Method
                   Response_Type = "Ordinal",
                   Fitting_Method = Fitting_Method, #
@@ -208,114 +175,16 @@ for(k in Index){
 
 
 # 🟥 GroupPenalty ################################################################
-##############################################################################################
-# 0. Loading functions
-##############################################################################################
-# rm(list=ls())
-#=============================================================================================
-# Mac
-#=============================================================================================
-# path_OS = "/Users/Ido/"
-#============================================================================================
-# Windows
-#============================================================================================
-# path_OS = "C:/Users/lleii/"
-#============================================================================================
-install_packages = function(packages, load=TRUE) {
-  # load : load the packages after installation?
-  for(pkg in packages) {
-    if (!require(pkg, character.only = TRUE)) {
-      install.packages(pkg)
-    }
-    
-    if(load){
-      library(pkg, character.only = TRUE)
-    }
-  }
-}
-install_packages(c("tidyverse", "dplyr", "clipr", "fda", "tidyr", "stringr", "readr"))
-#=============================================================================================
-path_Dropbox = paste0(path_OS, "Dropbox")
-path_GitHub = list.files(path_Dropbox, pattern = "Github", full.names = T)
-path_Rpkgs = list.files(path_GitHub, pattern = "Rpkgs", full.names = T)
-Rpkgs = c("ADNIprep", "StatsR", "refineR")
-Load = sapply(Rpkgs, function(y){
-  list.files(paste0(path_Rpkgs, "/", y, "/R"), full.names = T) %>% walk(source) 
-})
-#============================================================================================= Data
-path_Data = paste0(path_Dropbox, "/Data")
-#---------------
-# ADNI
-#---------------
-path_ADNI = list.files(path_Data, full.names = T, pattern = "ADNI")
-path_Subjects = list.files(path_ADNI, full.names = TRUE, pattern = "Subjects.Lists") %>% 
-  list.files(., full.names = TRUE) %>%
-  grep("Subjects_Lists_Exported$", ., value = TRUE) %>% 
-  list.files(., full.names = TRUE) %>% 
-  grep("Final$", ., value = TRUE) %>% 
-  list.files(., full.names = TRUE) %>% 
-  grep("list.csv$", ., value  =TRUE)
-# FDA
-path_FD = list.files(path_ADNI, full.names = T, pattern = "Functional.Data")
-path_Euclidean = list.files(path_FD, pattern = "Euclidean", full.names=TRUE)
-path_FPCA = list.files(path_Euclidean, pattern = "FPCA", full.names=TRUE)
-path_Combined = path_Euclidean %>% list.files(., pattern = "Combined", full.names = T)
-#============================================================================================= Papers
-path_Papers = path_Data %>% list.files(pattern = "Papers", full.names = T)
-path_Paper = path_Papers %>% list.files(pattern = "FDA on RS-fMRI FC Euclidean",full.names=T)
-path_Paper_Data = path_Paper %>% list.files(pattern = "Data", full.names = T)
-path_Paper_Results = path_Paper %>% list.files(pattern = "Results", full.names = T)
-#=============================================================================================
-
-
-
-
-
-
-
-
-
-
-
-#===============================================================================
-# Path
-#===============================================================================
+## 🟧 Setting & Loading data =====================================================
 path_Data = path_Paper_Data %>% list.files(., pattern = "\\.rds$", full.names=T)
 Names_Data = basename_sans_ext(path_Data)
 
-
-
-
-
-
-#===============================================================================
 # Loading Data
-#===============================================================================
 # If there is no "NA" at the end of each file name, they include NA for Demo variables
 Data.list = lapply(path_Data, readRDS) %>% setNames(Names_Data)
 
-
-
-
-
-
-
-
-
-
-
-#===============================================================================
-# Define a Logistic-setting function
-#===============================================================================
+# Logistic setting
 path_Export = ith_path_Export = paste0(path_Paper_Results, "/", Names_Data[2])
-
-
-
-
-
-
-
-
 
 
 #===============================================================================
@@ -358,19 +227,6 @@ Export_AUC = function(root_dir){
   
   
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #===============================================================================

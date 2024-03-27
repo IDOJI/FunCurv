@@ -1,7 +1,9 @@
+# save.image(file = "TMP.RData")
+# load("/Users/Ido/Library/CloudStorage/Dropbox/@GitHub/Github___Obsidian/Obsidian/☔️Papers_Writing/㊙️MS Thesis_FC Curves using FDA/♏️⭐️분석 코드/attachments/TMP.RData")
 # rm(list=ls())
 # 🟥 Load Functions & Packages ##########################################################################
 ## 🟧Loading my functions ======================================================
-# Check my OS
+# Check my OS/
 os <- Sys.info()["sysname"]
 if(os ==  "Darwin"){
   
@@ -60,12 +62,11 @@ install_packages(packages_to_install_and_load)
 ## 🟧 Data Random sampling ====================================================================
 Data_Sampling = function(Demo, 
                          FC_Curves,
-                         FC_Matrix = NULL,
-                         Pipeline = c("FunImgARCWSF", "FunImgARglobalCWSF"),
-                         BandType = c("MB", "SB"),
+                         Pipeline = "FunImgARglobalCWSF",
+                         BandType = "SB",
                          Diagnosis = c("AD", "CN"),
-                         proportion = c(0.1, 0.9),
-                         sample_size = c(100, 500, 1000),
+                         proportion = 0.1,
+                         sample_size = 100,
                          seed,
                          path_save){
   # ✅Arguments =================================================================== 
@@ -76,11 +77,16 @@ Data_Sampling = function(Demo,
   
   
   
+  
+  
   # ✅Random Sampling =================================================================== 
   ## ✅✅Filtering -------------------------------------------------------------------------
   Demo_New = Demo %>% 
     dplyr::filter(EPI___SLICE.BAND.TYPE == BandType) %>%  # BandType
     dplyr::filter(DIAGNOSIS_NEW %in% Diagnosis)
+  
+  
+  
   
   
   
@@ -97,8 +103,10 @@ Data_Sampling = function(Demo,
   
   
   
+  
   ## ✅✅FC curves-----------------------------------------------------------------------
   RID = paste0("RID_", Sampled_Demo$RID %>% fit_length(4))
+  
   Sampled_FC_Curves = lapply(FC_Curves, function(kth_FC_Curves){
     
     ith_Index = match(RID, colnames(kth_FC_Curves))
@@ -112,8 +120,7 @@ Data_Sampling = function(Demo,
   
   
   
-  
-  
+
   
   ## ✅✅FC  matrix----------------------------------------------------------------
   Sampled_FC_Matrix.list = NULL
@@ -170,256 +177,105 @@ Data_Sampling = function(Demo,
 
 
 
-## 🟧 Smoothing using Bspline ====================================================================
-Smoothing_by_Bspline = function(Sampled_Data, path_save){
-  # ✅ Load path of the sampled data list --------------------------------------------------------
-  # Folders = list.files(path_save, full.names = T)
-  # path_Sampled_Data_List = sapply(Folders, function(y){
-  #   list.files(y, full.names=T, pattern = "Sampled Data.rds")
-  # }) %>% unname
 
+
+## 🟧 Setting & Loading data =====================================================
+path_Data = path_Paper_Data %>% list.files(., pattern = "\\.rds$", full.names=T)
+Names_Data = basename_sans_ext(path_Data)
+
+# Loading Data
+# If there is no "NA" at the end of each file name, they include NA for Demo variables
+Data.list = lapply(path_Data, readRDS) %>% setNames(Names_Data)
+
+# Logistic setting
+path_Export = ith_path_Export = paste0(path_Paper_Results, "/", Names_Data[2])
+
+
+
+
+
+
+#===============================================================================
+# Binomial - NA GroupVar  : Only FPCA
+#===============================================================================
+Which_NA_RM_Data = intersect(grep("_NA", Names_Data), grep("_Full", Names_Data, invert = TRUE))
+path_Export = paste0(path_Paper_Results, "/RmNA___GroupPenalty/FPCA")
+Group_Penalty = c("grLasso", "grMCP", "grSCAD", "gel", "cMCP")
+
+
+Classification___Logistic
+
+for(gth_Penalty in Group_Penalty){
   
-  
-  
-  # ✅ Smoothing --------------------------------------------------------
-  tictoc::tic()
-  # for(i in seq_along(path_Sampled_Data_List)){
-  #   # ith save_path 
-  #   ith_path_save = Folders[i]
-  #   
-  #   # ith path
-  #   ith_path_Sampled_Data = path_Sampled_Data_List[i]
-  #   
-  #   # ith Sampled Data
-  #   ith_Sampled_Data = readRDS(ith_path_Sampled_Data)
-  #   
-  #   # Demographics
-  #   ith_Demo = ith_Sampled_Data$Demographics
-  #   
-  #   # FC curves
-  #   ith_FC_Curves = ith_Sampled_Data$FC_Curves
-  #   
-  #   
-  #   # Smoothing
-  #   ith_Smoothing_Results = lapply(seq_along(ith_FC_Curves), function(k){
-  #     
-  #     kth_Region = ith_FC_Curves[[k]]
-  #     
-  #     kth_x = kth_Region[,1]
-  #     
-  #     FDA___Smoothing(Bspline = list(y = kth_Region[,-1],
-  #                                    x = kth_x,
-  #                                    range_vals = c(min(kth_x), max(kth_x)),
-  #                                    nbasis = NULL,
-  #                                    norder = 4,
-  #                                    breaks = kth_x,
-  #                                    labmdas =  exp(seq(-5, -4, 0.1)),
-  #                                    m_int2Lfd = 2,
-  #                                    argvals = kth_x), 
-  #                     best.criterion = "gcv",
-  #                     path_Export = paste0(ith_path_save, "/Smoothed FC Curves using Bspline"), 
-  #                     file.name = paste0(fit_length(k, 3), "_", names(ith_FC_Curves)[k]))  
-  #     
-  #     
-  #   }) %>% setNames(names(ith_FC_Curves))
-  #   
-  #   # Save Smoothed Data
-  #   saveRDS(ith_Smoothing_Results, paste0(ith_path_save, "/Smoothed FC Curves using Bspline.rds"))
-  # }
-  
-  # Extract FC curves only
-  FC_Curves = Sampled_Data$FC_Curves
-  
-  # Extract Brain regions
-  Brain_Regions = names(FC_Curves)
-  
-  # Setting path
-  path_Export = paste0(path_save, "/", Sampled_Data$save_folder_name)
-  
-  
-  Smoothed_Data.list = lapply(seq_along(FC_Curves), function(k){
-    
-    kth_Region = FC_Curves[[k]]
-    
-    kth_x = kth_Region[,1]
-    
-    FDA___Smoothing(Bspline = list(y = kth_Region[,-1],
-                                   x = kth_x,
-                                   range_vals = c(min(kth_x), max(kth_x)),
-                                   nbasis = NULL,
-                                   norder = 4,
-                                   breaks = kth_x,
-                                   labmdas =  exp(seq(-5, -4, 0.1)),
-                                   m_int2Lfd = 2,
-                                   argvals = kth_x), 
-                    best.criterion = "gcv",
-                    path_Export = paste0(path_Export , "/Smoothed FC Curves using Bspline"), 
-                    file.name = paste0(fit_length(k, 3), "_", Brain_Regions[k]),
-                    save_rds = F,
-                    save_plot = F)    
-    
-  }) %>% setNames(Brain_Regions)
-  
-  tictoc::toc()
-  
-  cat("\n", crayon::green("Exporting"), crayon::bgRed("Smoothed Data"), crayon::green("is done!"),"\n")
-  return(Smoothed_Data.list)
+  try({
+    Resulst =  Classification(Logistic = list(#----------------------------------------
+                                              # Data Setting
+                                              #----------------------------------------
+                                              Train_X = kth_Data$Train_X,
+                                              Train_y = kth_Data$Train_y, # factor with levels
+                                              Test_X = kth_Data$Test_X,
+                                              Test_y = kth_Data$Test_y, # factor with levels
+                                              Train_Folds_Index.vec = kth_Data$Folds.vec,
+                                              Train_Folds_Index.list = kth_Data$Folds.list,
+                                              Standardize = TRUE,
+                                              #----------------------------------------
+                                              # Modeling Fitting
+                                              #----------------------------------------
+                                              # Method
+                                              Response_Type = "Nominal",
+                                              Fitting_Method = gth_Penalty,
+                                              Cut_Off = 0.5,
+                                              # Model
+                                              Family = c("binomial"),
+                                              Link = c("logit"),
+                                              # Penalty
+                                              penalty_alpha = seq(0, 1, 0.01),
+                                              penalty_lambda = exp(seq(-2,2,0.01)),
+                                              penalty.factor = rep(1, ncol(kth_Data$Train_X)), # which variables no penalty? The corresponding position of 0 is the variables with no penalty
+                                              #----------------------------------------
+                                              # Tuning measures
+                                              #----------------------------------------
+                                              Tune_Method = c("cvMisclass"),
+                                              # Best_Model_Criterion = c(#Classification___Logistic___Ordinal___Elastic___NonGroupedPenalty
+                                              #                          "cvLoglik", "cvMisclass", "cvBrier", "cvDevPct", "aic", "bic"),
+                                              #----------------------------------------
+                                              # Grouping variables
+                                              #----------------------------------------
+                                              Grouped_Vars_Index = kth_Data$Train_X_FeaturesGroupsNums, # NULL이 아니면 그룹 정보를 사용, 그룹 위치 벡터를 넣어야 함.
+                                              #----------------------------------------
+                                              # Plotting
+                                              #----------------------------------------
+                                              Plot_y_varname = NULL, # proportional logit plot은 하나의 변수만 가능하므로 한 변수 지정
+                                              Plot_x_varname = NULL, # 지정하지 않으면 plot 안 그려짐
+                                              AUC_in_Legend = TRUE,
+                                              #----------------------------------------
+                                              # Export Results
+                                              #----------------------------------------
+                                              path_Export = paste0(path_Export , "/", Names_Data[k], "___", gth_Penalty))
+    )}, silent = TRUE  
+  )
 }
 
 
+for(k in Which_NA_RM_Data){
 
-
-
-
-
-
-
-
-
-## 🟧 Generate True Coef functions =================================================================
-Generate_True_Coef_Function = function(Smoothed_Results, num_p_nonzero, path_save){
-  #### ✅ Generate functions by Total Number of Functions ============================================================================
-  # How many functions to generate
-  Total_Num_Functions = tail(num_p_nonzero, 1)
-  
-  Braion_Regions = names(Smoothed_Results)
-  
-  Generated_Coef_Functions = list()
-  Plot_Titles = list()
-  
-  for(k in 1:Total_Num_Functions){
-    # smoothed results of kth region
-    kth_Region_Smoothing = Smoothed_Results[[k]]$smoothing
-    
-    # Domain
-    Domain = kth_Region_Smoothing$argvals %>% as.vector
-    
-    # Range
-    Range = kth_Region_Smoothing$fd$basis$rangeval
-    
-    # Basis Expansion
-    nbasis = k + 3  # nbasis 설정
-    if(k %% 2 == 0){
-      what_basis = "fourier"
-      Basis = create.fourier.basis(rangeval = Range, nbasis = nbasis, period = (2 + k) * pi)
-    } else {
-      what_basis = "bspline"
-      Basis = fda::create.bspline.basis(rangeval = Range, nbasis = nbasis)
-    }
-    
-    
-    # Functional Coef : length(coef) = nbassi of Basis
-    set.seed(k)
-    Generated_Coef_Functions[[k]] = fd_obj = fd(coef = matrix(runif(nbasis), nrow = nbasis), basisobj = Basis)
-    
-    # Saving plots
-    path_Export = paste0(path_save, "/", "Regression Coefficient Functions")
-    Plot_Titles[[k]] = plot_title = paste0("Region___",Braion_Regions[k], "___k=", k , "___nbasis=", nbasis, "___Basis=", what_basis)
-    
-    dir.create(path_Export, F)
-    png(filename = paste0(path_Export, "/", sprintf("%02d", k), "th_Coefficient.png"), width = 800, height = 500, bg = "white")
-    plot(fd_obj, main = plot_title)
-    dev.off()
-    cat("\n", crayon::green("Saving"),crayon::bgMagenta("regression coefficient function plots"),crayon::green("is done!"), "\n")
-  }
-  
-  
-  # path_Folders = list.files(path_save, full.names=T)
-  # 
-  # path_Smoothed = sapply(path_Folders, function(y){
-  #   list.files(y, pattern = "Smoothed FC Curves using Bspline.rds", full.names = T)
-  # }) %>% unname
-  # 
-  # ith_Smoothed = readRDS(path_Smoothed[1])
-  # 
-  
-  #### ✅ Inner product with all zero fd ===========================================================================
-  # # 기저 함수 객체 가져오기
-  # basisobj <- mth_Smoothed_Result$smoothing$fd$basis
-  # 
-  # # 계수를 0으로 하는 벡터 생성
-  # coefs_zero <- matrix(0, nrow = basisobj$nbasis, ncol = 1)
-  # 
-  # # 모든 점에서 0의 값을 갖는 fd 객체 생성
-  # fd_zero <- fd(coefs_zero, basisobj)
-  # 
-  # # fd_zero와 mth_Smoothed_Result$smoothing$fd 사이의 내적 계산
-  # inner_product <- inprod(kth_Region_Smoothing, mth_Smoothed_Result$smoothing$fd)
-  
-  
-  names(Generated_Coef_Functions) = unlist(Plot_Titles)
-  
-  return(Generated_Coef_Functions)
-}
-
-
-
-## 🟧 Generate True Responses =================================================================
-Generate_True_Responses = function(Smoothed_Results, True_Coef_Functions, cutoff = 0.5){
-  ## 🟨 Linear Predictor by Inner product ==========================================================================
-  Linear_Predictor = list()
-  for(i in seq_along(True_Coef_Functions)){
-    
-    Linear_Predictor[[i]] = fda::inprod(Smoothed_Results[[i]]$smoothing$fd, 
-                                        True_Coef_Functions[[i]])
-    
-  }
-  
-  Linear_Predictor.df = do.call(cbind, Linear_Predictor)
-  
-
-  ## 🟨 probabilities by a sigmoid function ==========================================================================
-  p = apply(Linear_Predictor.df, MARGIN=1, function(ith_record){
-    E = sum(ith_record) %>% exp()
-    E/(1+E)
-  })
-    
-  
-  ## 🟨 Decide category by probabilities ==========================================================================  
-  Category = ifelse(p > cutoff, 1, 0)
-  
-  
-  
-  Results = data.frame(Category = Category, p = p)
-  return(Results)
   
 }
+Export_AUC(path_Export)
 
 
 
 
-  
-
-## 🟧 FPCA =====================================================================
-FPCA = function(Smoothed_Results, path_save, save_folder, export_result, export_plot){
-  
-  FPCA_Results = list()
-  
-  tictoc::tic()
-  for(i in seq_along(Smoothed_Results)){
-    
-    tictoc::tic()  
-    FPCA_Results[[i]] = FDA___fPCA(fdobj = Smoothed_Results[[i]]$smoothing$fd,
-                                   threshold = 0.9,
-                                   path_Export = paste0(path_save, "/", save_folder, "/FPCA"),
-                                   file.name = names(Smoothed_Results)[i], 
-                                   export_result = export_result,
-                                   export_plot = export_plot)
-    
-    cat("\n", crayon::green("FPCA is done:"), crayon::red(names(Smoothed_Results)[i]) ,"\n")
-    tictoc::toc()
-  }
-  
-  tictoc::toc()
-  
-  names(FPCA_Results) = names(Smoothed_Results)
-  
-  return(FPCA_Results)
-  
-}
 
 
-## 🟧 FPCA =====================================================================
+
+
+
+
+
+
+
+
 
 ## 🟨 Export FPCA socres for Train ==================================================================================
 # Extract_fPCA_Scores_with_GroupNums = function(FPCA, path_Export, File.Name){
@@ -536,22 +392,22 @@ for(i in seq_along(FPCA_Train.list)){
 
 # 🟥 Final Simulation Function #########################################################################
 ## 🟧 Define the simulation function =====================================================
-Simulation  = function(Demo,
-                       FC_Curves,
-                       FC_Matrix,
-                       Pipeline,
-                       BandType,
-                       Diagnosis,
-                       proportion,
-                       sample_size,
-                       seed,
-                       num_p_nonzero,
-                       cutoff,
-                       path_save){
+FDA_Simulation  = function(Demo,
+                           FC_Curves,
+                           FC_Matrix,
+                           Pipeline,
+                           BandType,
+                           Diagnosis,
+                           proportion,
+                           sample_size,
+                           seed,
+                           num_p_nonzero,
+                           cutoff,
+                           Train_K_Folds =  3,
+                           path_save){
   # ✅ Data Sampling --------------------------------------------------------------------
   Sampled_Data = Data_Sampling(Demo,
                                FC_Curves,
-                               FC_Matrix,
                                Pipeline,
                                BandType,
                                Diagnosis,
@@ -562,34 +418,97 @@ Simulation  = function(Demo,
   
   
   
-  # ✅ Smoothing --------------------------------------------------------------------
-  Smoothed_Results = Smoothing_by_Bspline(Sampled_Data, path_save)
+  
+  # ✅ Generate TRUE data -------------------------------------------------------------------
+  ## ✅ Setting for FDA-------------------------------------------------------------------
+  # List for extracted Domains and FC curves
+  Domain_x.list = list()
+  FC_Curves.list = list()
+  
+  
+  # Extraction
+  for(k in seq_along(Sampled_Data$FC_Curves)){
+    Domain_x.list[[k]] = Sampled_Data$FC_Curves[[k]][,1]
+    FC_Curves.list[[k]] = Sampled_Data$FC_Curves[[k]][,-1]
+  }
+
+  
+    
+  # Brain regions names
+  names(FC_Curves.list) = names(Domain_x.list) = names(Sampled_Data$FC_Curves)
+  
+  
+  # Fold option
+  Fold_Arguments = list(Data.df = Sampled_Data$Demographics,
+                        Var_1 = "DIAGNOSIS_NEW",
+                        Train_K_Folds = Train_K_Folds,
+                        Return_Validation = TRUE,
+                        seed = seed)
+  
+  
+  # Smoothing Option
+  Bspline.list = lapply(Domain_x.list, function(x){
+    list(x = x,
+         range_vals = c(min(x), max(x)),
+         nbasis = NULL,
+         norder = 4,
+         breaks = x,
+         lambdas = exp(seq(-5, -4, 0.1)),
+         m_int2Lfd = 2,
+         argvals = x,
+         best_criterion = "gcv")
+  }) %>% setNames(names(FC_Curves.list))
   
   
   
-  # ✅ Generate True Coefficients --------------------------------------------------------------------
-  True_Coef_Functions = Generate_True_Coef_Function(Smoothed_Results, num_p_nonzero, path_save)
+  ## ✅ FDA : Bspline smoothing -------------------------------------------------------------------
+  FDA___Simulation___GenerateTrueData = function(Curves.list, Bspline.list){
+    # 🟥 Smoothing =======================================================================
+    FDA___CV()
+    
+    
+    # 🟥 Smoothing =======================================================================
+    
+    
+  }  
+
+  
+  
+  # ✅ Smoothing results --------------------------------------------------------------------
+  ## ️✴️ True Coefficients  ----------------------------------------------------------
+  True_Coef_Functions.list = FDA___Simulation___GenerateTrueCoefFunctions(Smoothed_Results.list = FDA_Results$Train_Result$Smoothed_Train, num_p_nonzero)
   
   
   
-  # ✅ Generate True response variables --------------------------------------------------------------------
-  True_Responses = Generate_True_Responses(Smoothed_Results, True_Coef_Functions, cutoff)
+  ## ✴️ Generate True response variables --------------------------------------------------------------------
+  True_Responses = FDA___Simulation___GenerateTrueResponses(FDA_Results.list$Train_Result$Smoothed_Train, True_Coef_Functions.list, cutoff)
   
   
   
-  # ✅ FPCA --------------------------------------------------------------------
-  FPCA_Results = FPCA(Smoothed_Results, path_save, Sampled_Data$save_folder_name, export_result = F, export_plot = F)
+  
   
   
   
   # ✅ Dimension Reduction on FC Matrices --------------------------------------------------------------------
+  FDA_Results.list = FDA___CV(Demographics.df = Sampled_Data$Demographics,
+                              Curves.list = FC_Curves.list,
+                              Fold_Arguments = Fold_Arguments,
+                              Bspline.list = Bspline.list,
+                              FPCA.list = list(threshold = 0.9),
+                              path_save = NULL)
+  # random noise
+  # true covariates + noise -> obs -> smoothing
+  true 시그널 관련 논문 ㅊ자기
+  # scenario 1
+  # true covariates + noise -> obs
+  
+  # scenario 2
+  # raw covariates + noise -> obs -> smoothing
   
   
   
   
-  
-  
-  # ✅ Smoothing by Bspline --------------------------------------------------------------------
+  # ✅ --------------------------------------------------------------------
   Generate_True_Coef_Function
   
 }
