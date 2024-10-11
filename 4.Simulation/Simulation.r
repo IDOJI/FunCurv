@@ -379,141 +379,6 @@ for(i in seq_along(FPCA_Train.list)){
 
 
 
-
-
-
-# 🟥 Classification #################################################################
-
-
-
-
-
-
-
-# 🟥 Final Simulation Function #########################################################################
-## 🟧 Define the simulation function =====================================================
-FDA_Simulation  = function(Demo,
-                           FC_Curves,
-                           FC_Matrix,
-                           Pipeline,
-                           BandType,
-                           Diagnosis,
-                           proportion,
-                           sample_size,
-                           seed,
-                           num_p_nonzero,
-                           cutoff,
-                           Train_K_Folds =  3,
-                           path_save){
-  # ✅ Data Sampling --------------------------------------------------------------------
-  Sampled_Data = Data_Sampling(Demo,
-                               FC_Curves,
-                               Pipeline,
-                               BandType,
-                               Diagnosis,
-                               proportion,
-                               sample_size,
-                               seed,
-                               path_save)
-  
-  
-  
-  
-  # ✅ Generate TRUE data -------------------------------------------------------------------
-  ## ✅ Setting for FDA-------------------------------------------------------------------
-  # List for extracted Domains and FC curves
-  Domain_x.list = list()
-  FC_Curves.list = list()
-  
-  
-  # Extraction
-  for(k in seq_along(Sampled_Data$FC_Curves)){
-    Domain_x.list[[k]] = Sampled_Data$FC_Curves[[k]][,1]
-    FC_Curves.list[[k]] = Sampled_Data$FC_Curves[[k]][,-1]
-  }
-
-  
-    
-  # Brain regions names
-  names(FC_Curves.list) = names(Domain_x.list) = names(Sampled_Data$FC_Curves)
-  
-  
-  # Fold option
-  Fold_Arguments = list(Data.df = Sampled_Data$Demographics,
-                        Var_1 = "DIAGNOSIS_NEW",
-                        Train_K_Folds = Train_K_Folds,
-                        Return_Validation = TRUE,
-                        seed = seed)
-  
-  
-  # Smoothing Option
-  Bspline.list = lapply(Domain_x.list, function(x){
-    list(x = x,
-         range_vals = c(min(x), max(x)),
-         nbasis = NULL,
-         norder = 4,
-         breaks = x,
-         lambdas = exp(seq(-5, -4, 0.1)),
-         m_int2Lfd = 2,
-         argvals = x,
-         best_criterion = "gcv")
-  }) %>% setNames(names(FC_Curves.list))
-  
-  
-  
-  ## ✅ FDA : Bspline smoothing -------------------------------------------------------------------
-  FDA___Simulation___GenerateTrueData = function(Curves.list, Bspline.list){
-    # 🟥 Smoothing =======================================================================
-    FDA___CV()
-    
-    
-    # 🟥 Smoothing =======================================================================
-    
-    
-  }  
-
-  
-  
-  # ✅ Smoothing results --------------------------------------------------------------------
-  ## ️✴️ True Coefficients  ----------------------------------------------------------
-  True_Coef_Functions.list = FDA___Simulation___GenerateTrueCoefFunctions(Smoothed_Results.list = FDA_Results$Train_Result$Smoothed_Train, num_p_nonzero)
-  
-  
-  
-  ## ✴️ Generate True response variables --------------------------------------------------------------------
-  True_Responses = FDA___Simulation___GenerateTrueResponses(FDA_Results.list$Train_Result$Smoothed_Train, True_Coef_Functions.list, cutoff)
-  
-  
-  
-  
-  
-  
-  
-  # ✅ Dimension Reduction on FC Matrices --------------------------------------------------------------------
-  FDA_Results.list = FDA___CV(Demographics.df = Sampled_Data$Demographics,
-                              Curves.list = FC_Curves.list,
-                              Fold_Arguments = Fold_Arguments,
-                              Bspline.list = Bspline.list,
-                              FPCA.list = list(threshold = 0.9),
-                              path_save = NULL)
-  # random noise
-  # true covariates + noise -> obs -> smoothing
-  true 시그널 관련 논문 ㅊ자기
-  # scenario 1
-  # true covariates + noise -> obs
-  
-  # scenario 2
-  # raw covariates + noise -> obs -> smoothing
-  
-  
-  
-  
-  # ✅ --------------------------------------------------------------------
-  Generate_True_Coef_Function
-  
-}
-  
-
 ## 🟧 Setting ======================================================================
 # save path
 path_save = "/Volumes/Backup_SSD/Backup___Dropbox/@DataAnalysis/✴️DataAnalysis___FDA on RS-fMRI FC Euclidean/6.Simulation"
@@ -532,6 +397,7 @@ Total_proportion = list(c(0.1, 0.9), c(0.2, 0.8), c(0.3, 0.7), c(0.4, 0.6), c(0.
 Total_sample_size = c(100, 500, 1000)
 Total_num_p_nonzero = c(5,10,20)
 
+
 Pipeline = "FunImgARglobalCWSF"
 BandType = "SB"
 Diagnosis = c("AD", "CN")
@@ -541,7 +407,7 @@ num_p_nonzero = Total_num_p_nonzero[1]
 cutoff = 0.5
 
 
-## 🟧 Repeat Simulation =====================================================
+## 🟧 Repeat Simulation =================================================================================
 for(prop in proportion){
   for(n in sample_size){
     Data_Sampling(Demo = Demo,
