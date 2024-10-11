@@ -40,7 +40,7 @@ select = dplyr::select
 
 # 🟥 Define smoothing functions =========================================================================================================
 ## 🟨 Multiple : smoothing by bspline gcv =======================================================================
-smoothing_multiple_ROIs = function(path_FC, n_order, lambdas, path_export){
+smoothing_multiple_ROIs = function(path_FC, n_order, n_breaks, lambdas, path_export, save_each_ROI = FALSE){
   library(magrittr)
   library(fda)
   library(crayon)  # Load the crayon package for colored output
@@ -56,6 +56,13 @@ smoothing_multiple_ROIs = function(path_FC, n_order, lambdas, path_export){
   
   cat(green("Results will be saved in:"), bold(atlas_export_path), "\n")
   
+  # Check if the final results file already exists and is non-empty
+  final_results_file = file.path(atlas_export_path, "results_smoothed.rds")
+  if (file.exists(final_results_file) && file.info(final_results_file)$size > 0) {
+    cat(yellow("Skipping smoothing process: Final results file already exists and is non-empty\n"))
+    return(readRDS(final_results_file))  # Return the saved final results if it exists
+  }
+  
   # Read the RDS file containing the list of ROIs
   FC = readRDS(path_FC)
   
@@ -69,44 +76,57 @@ smoothing_multiple_ROIs = function(path_FC, n_order, lambdas, path_export){
     kth_ROI$ROI = kth_ROI$Euclid_dist = NULL
     
     # Create the file name for saving the results using the ROI name
-    file_name = paste0(roi_name, "_smoothed_result.rds")  # Save as .rds file
-    file_path = file.path(atlas_export_path, file_name)
+    file_name = paste0(roi_name, "_smoothed_result.png")  # Create file name for checking
     
-    # Check if the file already exists and is non-empty
+    # Check if the plot file for this ROI already exists and is non-empty
+    file_path = file.path(atlas_export_path, file_name)
     if (file.exists(file_path) && file.info(file_path)$size > 0) {
       cat(yellow("Skipping ROI:"), bold(roi_name), "(File already exists and is non-empty)\n")
       return(NULL)  # Skip this ROI and return NULL
     }
     
-    # Call the smoothing function for each ROI and save the results
-    smoothing_result = smoothing_by_bspline_gcv(kth_ROI, domain, n_order, lambdas, atlas_export_path, file_name)
+    # If save_each_ROI is TRUE, check if the RDS file for this ROI already exists and is non-empty
+    if (save_each_ROI) {
+      rds_file_path = file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
+      if (file.exists(rds_file_path) && file.info(rds_file_path)$size > 0) {
+        cat(yellow("Skipping smoothing for ROI:"), bold(roi_name), "(RDS file already exists and is non-empty)\n")
+        return(readRDS(rds_file_path))  # Skip and read the existing RDS file
+      }
+    }
+    
+    # Call the smoothing function for each ROI and get the results
+    smoothing_result = smoothing_by_bspline_gcv(kth_ROI, domain, n_order, lambdas, n_breaks, atlas_export_path, file_name)
+    
+    # Save individual ROI result as RDS if save_each_ROI is TRUE
+    if (save_each_ROI) {
+      saveRDS(smoothing_result, file = rds_file_path)
+      cat(green("Saved smoothed result for ROI:"), bold(roi_name), "at", rds_file_path, "\n")
+    }
     
     # Completion message
     cat(green("Completed smoothing for ROI:"), bold(roi_name), 
         "(", blue(match(roi_name, names(FC))), "/", length(FC), ")\n")
     
-    # Save the smoothing result to the specified file path
-    saveRDS(smoothing_result, file = file_path)
-    
     return(smoothing_result)
-  })
+  }) %>% setNames(names(FC))
   
   # Remove NULL entries from the results list
   results = results[!sapply(results, is.null)]
   
   # Save the entire results list as an RDS file
-  saveRDS(results, file = file.path(atlas_export_path, "results_smoothed.rds"))
+  saveRDS(results, file = final_results_file)
+  cat(green("Saved final results at:"), bold(final_results_file), "\n")
   
   return(results)
 }
-
 
 
 ## 🟨 Single : smoothing by bspline gcv =======================================================================
 smoothing_by_bspline_gcv = function(kth_ROI, 
                                     domain, 
                                     n_order, 
-                                    lambdas, 
+                                    lambdas,
+                                    n_breaks,
                                     path_export = NULL, 
                                     file_name = "smoothing_result",
                                     width = 2000){
@@ -144,9 +164,13 @@ smoothing_by_bspline_gcv = function(kth_ROI,
   }
   
   # Define bspline basis
+  if(is.null(n_breaks)){
+    n_breaks = nrow(kth_ROI)
+  }
   fdobj_basis = create.bspline.basis(rangeval = c(min(domain), max(domain)), 
                                      norder = n_order, 
-                                     breaks = seq(from = min(domain), to = max(domain), length.out = nrow(kth_ROI)))
+                                     breaks = seq(from = min(domain), to = max(domain), length.out = n_breaks))
+  
   
   # Find the optimal GCV
   gcvs = sapply(lambdas, function(ith_lambda){
@@ -164,10 +188,6 @@ smoothing_by_bspline_gcv = function(kth_ROI,
   opt_lambda = lambdas[which.min(gcvs)]
   opt_fdPar_obj = fdPar(fdobj = fdobj_basis, Lfdobj = int2Lfd(2), lambda = opt_lambda)
   opt_fdSmooth_obj = smooth.basis(argvals = domain, y = X, fdParobj = opt_fdPar_obj)
-  
-  # Save the smoothing result to file
-  saveRDS(list(fdSmooth_obj = opt_fdSmooth_obj, lambda = opt_lambda), file = smoothing_result_file)
-  cat(green("Saved smoothing result at:"), bold(smoothing_result_file), "\n")
   
   # Plot after smoothing
   if (!is.null(path_export)) {
