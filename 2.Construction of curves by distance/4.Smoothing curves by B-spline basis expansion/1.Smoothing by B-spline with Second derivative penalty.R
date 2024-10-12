@@ -6,8 +6,8 @@ path_export = "E:/Smoothing_FunImgARCWSF_FC"
 
 
 ### 🟧 AAL3  ====================================================================================================================
-path_atlas = list.files(path_FC, "AAL3.rds", full.names = T)
-results = smoothing_multiple_ROIs(path_atlas, 
+path_FC_atlas = list.files(path_FC, "AAL3.rds", full.names = T)
+results = smoothing_multiple_ROIs(path_FC_atlas, 
                                   n_order = 4,
                                   n_breaks = 300,
                                   lambdas = exp(seq(-5, -4, 0.1)),  # 후보 smoothing 파라미터

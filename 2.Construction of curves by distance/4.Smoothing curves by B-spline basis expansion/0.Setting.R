@@ -57,7 +57,7 @@ adjust_path <- function(path) {
 
 # 🟥 Define smoothing functions =========================================================================================================
 ## 🟨 Multiple : smoothing by bspline gcv =======================================================================
-smoothing_multiple_ROIs <- function(path_FC, 
+smoothing_multiple_ROIs <- function(path_FC_atlas, 
                                     n_order, 
                                     n_breaks = NULL, 
                                     lambdas, 
@@ -66,7 +66,7 @@ smoothing_multiple_ROIs <- function(path_FC,
                                     width = 2000,
                                     overwrite = TRUE) {
   
-  atlas_name <- tools::file_path_sans_ext(basename(path_FC))
+  atlas_name <- tools::file_path_sans_ext(basename(path_FC_atlas))
   atlas_export_path <- file.path(path_export, atlas_name)
   
   # Create the export directory if it doesn't exist
@@ -87,10 +87,11 @@ smoothing_multiple_ROIs <- function(path_FC,
   }
   
   # Read the FC data from the RDS file
-  FC <- readRDS(path_FC)
+  FC <- readRDS(path_FC_atlas)
   
   # Apply smoothing to each ROI
   results <- lapply(names(FC), function(roi_name) {
+    # roi_name = names(FC)[1]
     cat(crayon::cyan("[INFO] Processing ROI:"), bold(roi_name), "\n")
     
     kth_ROI <- FC[[roi_name]]
@@ -107,6 +108,7 @@ smoothing_multiple_ROIs <- function(path_FC,
     }
     
     # **Call smoothing function without saving if save_each_ROI is FALSE**
+    # save_each_ROI=F
     if (save_each_ROI) {
       rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
       if (file.exists(rds_file_path) && file.info(rds_file_path)$size > 0) {
