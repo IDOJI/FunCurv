@@ -197,87 +197,91 @@ combine_fisher_z_fc <- function(data_list) {
 
 # FC 데이터를 처리하고 저장하는 함수 정의
 process_and_save_fc_data <- function(path_folder, path_save, sorted_dist) {
-  require(tools)
-  fc_data_list <- list.files(path_folder, full.names = TRUE)
+  require(tools)  # 'tools' 패키지 로드
+  fc_data_list <- list.files(path_folder, full.names = TRUE)  # FC 데이터 파일 목록 가져오기
   
   for (ith_fc_path in fc_data_list) {
+    # 아틀라스 이름 추출 및 저장 경로 생성
     ith_atlas <- basename(ith_fc_path) %>%
       file_path_sans_ext() %>%
       sub("_combined_Fisher_Z_fc$", "", .)
     
     save_file_path <- file.path(path_save, paste0(ith_atlas, ".rds"))
     
+    # 파일이 이미 존재하면 건너뛰기
     if (file.exists(save_file_path)) {
       cat(crayon::red(paste("File already exists for atlas:", ith_atlas, ". Skipping processing.\n")))
-      next
+      next  # 다음 파일로 넘어가기
     }
     
-    total_start_time <- Sys.time()
+    total_start_time <- Sys.time()  # 전체 처리 시간 시작
     
+    # 파일 읽기, 에러 처리
     tryCatch({
       ith_fc <- readRDS(ith_fc_path)
     }, error = function(e) {
       cat(crayon::red(paste("Error reading file:", ith_fc_path, "\n")))
-      next
+      next  # 파일 읽기에 실패하면 건너뛰기
     })
     
+    # 거리 정보 정렬
     ith_sorted_dist <- sorted_dist[[ith_atlas]]
     ith_sorted_FC_data <- list()
     
-    # Sorting
+    # 정렬 수행 및 시간 측정
     tictoc::tic("Sorting")
-    each_rid_sorted_FC_list = lapply(names(ith_fc), function(rid){
-      rid_fc = ith_fc[[rid]]
+    each_rid_sorted_FC_list <- lapply(names(ith_fc), function(rid) {
+      rid_fc <- ith_fc[[rid]]
       
-      rid_sorted_FC_list = lapply(names(ith_sorted_dist), function(roi){
-        roi_rid_fc = rid_fc[,roi]
-        roi_dist = ith_sorted_dist[[roi]]
-        selected_roi_rid_fc = roi_rid_fc[names(roi_rid_fc) %in% names(roi_dist)]
-        sorted_selected_roi_rid_fc = selected_roi_rid_fc[names(roi_dist)]
-        data.frame(Dist = roi_dist, ROI = names(sorted_selected_roi_rid_fc), Fisher_Z_FC = sorted_selected_roi_rid_fc) %>% as_tibble
+      rid_sorted_FC_list <- lapply(names(ith_sorted_dist), function(roi) {
+        roi_rid_fc <- rid_fc[, roi]
+        roi_dist <- ith_sorted_dist[[roi]]
+        selected_roi_rid_fc <- roi_rid_fc[names(roi_rid_fc) %in% names(roi_dist)]
+        sorted_selected_roi_rid_fc <- selected_roi_rid_fc[names(roi_dist)]
+        data.frame(
+          Dist = roi_dist,
+          ROI = names(sorted_selected_roi_rid_fc),
+          Fisher_Z_FC = sorted_selected_roi_rid_fc
+        ) %>% as_tibble()
       }) %>% setNames(names(ith_sorted_dist))
+      
+      return(rid_sorted_FC_list)
     }) %>% setNames(names(ith_fc))
-    tictoc::toc()
+    tictoc::toc()  # 정렬 종료
     
-    
-    # Combine
-    # roi = names(ith_sorted_dist)[1]
-    # ROI 별로 데이터 처리 및 시간 측정 함수
+    # ROI 별로 데이터 처리 및 시간 측정
     final_combined_data_list <- lapply(names(ith_sorted_dist), function(roi) {
+      start_time <- Sys.time()  # ROI 처리 시작 시간
       
-      # 시작 시간 기록
-      start_time <- Sys.time()
-      
-      # 각 rid에 대해 Fisher_Z_FC 결합
       combined_roi_fc <- lapply(names(each_rid_sorted_FC_list), function(rid) {
         each_rid_sorted_FC_list[[rid]][[roi]]
-      }) %>% 
-        setNames(names(each_rid_sorted_FC_list)) %>% 
-        combine_fisher_z_fc
+      }) %>%
+        setNames(names(each_rid_sorted_FC_list)) %>%
+        combine_fisher_z_fc  # Fisher_Z_FC 결합
       
-      # 종료 시간 기록 및 소요 시간 계산
-      end_time <- Sys.time()
-      elapsed_time <- end_time - start_time
+      end_time <- Sys.time()  # ROI 처리 종료 시간
+      elapsed_time <- end_time - start_time  # 소요 시간 계산
       
-      # 메시지 출력: atlas 이름과 roi 이름, 소요 시간 포함
+      # 처리 완료 메시지 출력
       cat(crayon::blue(paste0("Finished processing atlas: ", ith_atlas, 
                               " | ROI: ", roi, "\n")))
       cat(crayon::green(paste0("Time taken for ROI ", roi, ": ", 
                                round(elapsed_time, 2), " seconds\n")))
       
-      return(combined_roi_fc)
-      
+      return(combined_roi_fc)  # ROI 데이터 반환
     }) %>% setNames(names(ith_sorted_dist))
     
+    # 최종 결과 저장
     saveRDS(final_combined_data_list, save_file_path)
     
+    # 전체 처리 시간 계산 및 출력
     total_end_time <- Sys.time()
     total_elapsed_time <- total_end_time - total_start_time
-    cat(crayon::yellow(paste0("Finished processing atlas: ", ith_atlas, " | Total time taken: ", round(total_elapsed_time, 2), " seconds\n")))
+    cat(crayon::yellow(paste0("Finished processing atlas: ", ith_atlas, 
+                              " | Total time taken: ", 
+                              round(total_elapsed_time, 2), " seconds\n")))
   }
 }
-
-
 
 
 ## 🟩 ReHo, DC, ALFF ==================================================================================================
