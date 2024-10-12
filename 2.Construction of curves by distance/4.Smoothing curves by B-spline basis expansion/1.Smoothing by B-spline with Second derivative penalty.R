@@ -13,7 +13,7 @@ results = smoothing_multiple_ROIs(path_atlas,
                                   lambdas = exp(seq(-5, -4, 0.1)),  # 후보 smoothing 파라미터
                                   path_export,
                                   save_each_ROI = F,
-                                  overwrite = T)
+                                  overwrite = F)
 
 
 
@@ -31,7 +31,7 @@ results = smoothing_multiple_ROIs(path_atlas,
 
 # 🟥 FunImgARglobalCWSF ==============================================================================================================================================
 ## 🟨 FC  ====================================================================================================================
-path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/ADNI_SB/✴️⭐️3.ROI-defined results/✅✴️⭐️2.Functional Connectivity/global/Fisher Z Transformation"
+path_FC = "E:/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/Fisher Z FC"
 path_FC = path_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARglobalCWSF_FC"
 path_export = path_export %>% adjust_path
@@ -46,8 +46,7 @@ results = smoothing_multiple_ROIs(path_atlas,
                                   lambdas = exp(seq(-5, -4, 0.1)),  # 후보 smoothing 파라미터
                                   path_export,
                                   save_each_ROI = F,
-                                  overwrite = T)
-
+                                  overwrite = F)
 
 
 ### 🟧 Schaefer2018_1000Parcels_17Networks_order_FSLMNI152__resampled.nii.gz_ =====================================================================
