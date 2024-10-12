@@ -12,7 +12,8 @@ results = smoothing_multiple_ROIs(path_atlas,
                                   n_breaks = 300,
                                   lambdas = exp(seq(-5, -4, 0.1)),  # 후보 smoothing 파라미터
                                   path_export,
-                                  save_each_ROI = F)
+                                  save_each_ROI = F,
+                                  overwrite = T)
 
 
 
