@@ -62,7 +62,8 @@ smoothing_multiple_ROIs = function(path_FC,
                                    n_breaks = NULL, 
                                    lambdas, 
                                    path_export, 
-                                   save_each_ROI = FALSE){
+                                   save_each_ROI = FALSE,
+                                   overwrite=T){
   library(magrittr)
   library(fda)
   library(crayon)  # Load the crayon package for colored output
@@ -117,7 +118,7 @@ smoothing_multiple_ROIs = function(path_FC,
     }
     
     # Call the smoothing function for each ROI and get the results
-    smoothing_result = smoothing_by_bspline_gcv(kth_ROI, domain, n_order, lambdas, n_breaks, atlas_export_path, file_name)
+    smoothing_result = smoothing_by_bspline_gcv(kth_ROI, domain, n_order, lambdas, n_breaks, atlas_export_path, file_name, overwrite)
     
     # Save individual ROI result as RDS if save_each_ROI is TRUE
     if (save_each_ROI) {
@@ -144,31 +145,32 @@ smoothing_multiple_ROIs = function(path_FC,
 
 
 ## 🟨 Single : smoothing by bspline gcv =======================================================================
-smoothing_by_bspline_gcv = function(kth_ROI, 
-                                    domain, 
-                                    n_order, 
-                                    lambdas,
-                                    n_breaks = NULL,
-                                    path_export = NULL, 
-                                    file_name = "smoothing_result",
-                                    width = 2000){
+smoothing_by_bspline_gcv <- function(kth_ROI, 
+                                     domain, 
+                                     n_order, 
+                                     lambdas,
+                                     n_breaks = NULL,
+                                     path_export = NULL, 
+                                     file_name = "smoothing_result",
+                                     width = 2000,
+                                     overwrite = FALSE) {
   library(magrittr)
   library(fda)
   library(crayon)  # Load the crayon package for colored output
   
   # Convert kth_ROI to matrix
-  X = kth_ROI %>% as.matrix
+  X <- kth_ROI %>% as.matrix()
   
-  if(is.null(n_breaks)){
-    n_breaks = nrow(X)
+  if (is.null(n_breaks)) {
+    n_breaks <- nrow(X)
   }
   
   # Initial plot before smoothing
   if (!is.null(path_export)) {
-    file_path_before = file.path(path_export, paste0(file_name, "_before.png"))
+    file_path_before <- file.path(path_export, paste0(file_name, "_before.png"))
     
     # Check if the initial plot already exists
-    if (file.exists(file_path_before)) {
+    if (file.exists(file_path_before) && !overwrite) {
       cat(yellow("Skipping initial plot: File already exists at"), bold(file_path_before), "\n")
     } else {
       png(filename = file_path_before, width = width, height = 600)
@@ -181,25 +183,26 @@ smoothing_by_bspline_gcv = function(kth_ROI,
   }
   
   # Define smoothing result file path
-  smoothing_result_file = file.path(path_export, paste0(file_name, "_smoothing_result.rds"))
+  smoothing_result_file <- file.path(path_export, paste0(file_name, "_smoothing_result.rds"))
   
   # Check if the smoothing result file already exists
-  if (!is.null(path_export) && file.exists(smoothing_result_file)) {
+  if (!is.null(path_export) && file.exists(smoothing_result_file) && !overwrite) {
     cat(yellow("Skipping smoothing and plotting: File already exists at"), bold(smoothing_result_file), "\n")
     return(readRDS(smoothing_result_file))  # Return the saved result if it exists
   }
   
-
-  fdobj_basis = create.bspline.basis(rangeval = c(min(domain), max(domain)), 
-                                     norder = n_order, 
-                                     breaks = seq(from = min(domain), to = max(domain), length.out = n_breaks))
-  
+  # Create B-spline basis
+  fdobj_basis <- create.bspline.basis(
+    rangeval = c(min(domain), max(domain)),
+    norder = n_order,
+    breaks = seq(from = min(domain), to = max(domain), length.out = n_breaks)
+  )
   
   # Find the optimal GCV
-  gcvs = sapply(lambdas, function(ith_lambda){
+  gcvs <- sapply(lambdas, function(ith_lambda) {
     tryCatch({
-      fdPar_obj = fdPar(fdobj = fdobj_basis, Lfdobj = int2Lfd(2), lambda = ith_lambda)
-      fdSmooth_obj = smooth.basis(argvals = domain, y = X, fdParobj = fdPar_obj)
+      fdPar_obj <- fdPar(fdobj = fdobj_basis, Lfdobj = int2Lfd(2), lambda = ith_lambda)
+      fdSmooth_obj <- smooth.basis(argvals = domain, y = X, fdParobj = fdPar_obj)
       mean(fdSmooth_obj$gcv)
     }, error = function(e) {
       cat(red("Error occurred for lambda =", ith_lambda, "\n"))
@@ -208,16 +211,16 @@ smoothing_by_bspline_gcv = function(kth_ROI,
   })
   
   # Smoothing using the optimal parameter
-  opt_lambda = lambdas[which.min(gcvs)]
-  opt_fdPar_obj = fdPar(fdobj = fdobj_basis, Lfdobj = int2Lfd(2), lambda = opt_lambda)
-  opt_fdSmooth_obj = smooth.basis(argvals = domain, y = X, fdParobj = opt_fdPar_obj)
+  opt_lambda <- lambdas[which.min(gcvs)]
+  opt_fdPar_obj <- fdPar(fdobj = fdobj_basis, Lfdobj = int2Lfd(2), lambda = opt_lambda)
+  opt_fdSmooth_obj <- smooth.basis(argvals = domain, y = X, fdParobj = opt_fdPar_obj)
   
   # Plot after smoothing
   if (!is.null(path_export)) {
-    file_path_after = file.path(path_export, paste0(file_name, "_after.png"))
+    file_path_after <- file.path(path_export, paste0(file_name, "_after.png"))
     
     # Check if the final plot already exists
-    if (file.exists(file_path_after)) {
+    if (file.exists(file_path_after) && !overwrite) {
       cat(yellow("Skipping plot after smoothing: File already exists at"), bold(file_path_after), "\n")
     } else {
       png(filename = file_path_after, width = width, height = 600)
@@ -229,13 +232,11 @@ smoothing_by_bspline_gcv = function(kth_ROI,
     plot(opt_fdSmooth_obj$fd, col = 1:ncol(X), lty = 1, main = paste("Optimal Smoothing with lambda =", opt_lambda))
   }
   
+  # Save smoothing result
+  if (!is.null(path_export)) {
+    saveRDS(opt_fdSmooth_obj, smoothing_result_file)
+    cat(green("Saved smoothing result at:"), bold(smoothing_result_file), "\n")
+  }
+  
   return(list(fdSmooth_obj = opt_fdSmooth_obj, lambda = opt_lambda))
 }
-
-
-
-
-
-
-
-
