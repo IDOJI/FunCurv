@@ -118,7 +118,7 @@ smoothing_multiple_ROIs <- function(path_FC,
     # Perform smoothing
     smoothing_result <- smoothing_by_bspline_gcv(
       kth_ROI, domain, n_order, lambdas, n_breaks, 
-      path_export = if (save_each_ROI) atlas_export_path else NULL, 
+      path_export = atlas_export_path, 
       file_name = roi_name, 
       width = width, overwrite = overwrite
     )
@@ -241,10 +241,10 @@ smoothing_by_bspline_gcv <- function(kth_ROI,
   }
   
   # Save smoothing result
-  if (!is.null(path_export)) {
-    saveRDS(opt_fdSmooth_obj, smoothing_result_file)
-    cat(green("Saved smoothing result at:"), bold(smoothing_result_file), "\n")
-  }
+  # if (!is.null(path_export)) {
+  #   saveRDS(opt_fdSmooth_obj, smoothing_result_file)
+  #   cat(green("Saved smoothing result at:"), bold(smoothing_result_file), "\n")
+  # }
   
   return(list(fdSmooth_obj = opt_fdSmooth_obj, lambda = opt_lambda))
 }
