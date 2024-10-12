@@ -1,5 +1,6 @@
 # 🟥 Trian data ==============================================================================================================================================
 path_train = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/2.Split train and test data/all_train_data_seed_4649.rds"
+path_train = "C:/Users/clair/OneDrive/바탕 화면/FunCurv/all_train_data_seed_4649.rds"
 train = readRDS(path_train)
 train_RID = sprintf("RID_%04d", train$RID)
 
@@ -49,8 +50,9 @@ path_export = path_export %>% adjust_path
 
 
 ### 🟧 AAL3  ====================================================================================================================
-path_atlas = list.files(path_FC, "AAL3.rds", full.names = T)
-results = smoothing_multiple_ROIs(path_atlas, 
+path_FC_atlas = list.files(path_FC, "AAL3.rds", full.names = T)
+results = smoothing_multiple_ROIs(path_FC_atlas, 
+                                  train_RID,
                                   n_order = 4,
                                   n_breaks = 300,
                                   lambdas = exp(seq(-5, -4, 0.1)),  # 후보 smoothing 파라미터
