@@ -94,8 +94,8 @@ smoothing_multiple_ROIs = function(path_FC,
     
     # Extract the kth ROI and set up the domain
     kth_ROI = FC[[roi_name]]
-    domain = kth_ROI$Euclid_dist
-    kth_ROI$ROI = kth_ROI$Euclid_dist = NULL
+    domain = kth_ROI$Dist
+    kth_ROI$ROI = kth_ROI$Dist = NULL
     
     # Create the file name for saving the results using the ROI name
     file_name = paste0(roi_name, "_smoothed_result.png")  # Create file name for checking
