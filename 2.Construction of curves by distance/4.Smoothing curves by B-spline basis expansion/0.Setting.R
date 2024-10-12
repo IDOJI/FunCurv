@@ -106,17 +106,24 @@ smoothing_multiple_ROIs <- function(path_FC,
       return(NULL)
     }
     
-    # If save_each_ROI is TRUE, use the actual export path; otherwise, use a temporary path
-    export_path <- if (save_each_ROI) atlas_export_path else tempdir()
+    # **Call smoothing function without saving if save_each_ROI is FALSE**
+    if (save_each_ROI) {
+      rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
+      if (file.exists(rds_file_path) && file.info(rds_file_path)$size > 0) {
+        cat(crayon::yellow("[INFO] ROI already processed:"), crayon::bold(roi_name), "\n")
+        return(readRDS(rds_file_path))
+      }
+    }
     
-    # Call the smoothing function
+    # Perform smoothing
     smoothing_result <- smoothing_by_bspline_gcv(
       kth_ROI, domain, n_order, lambdas, n_breaks, 
-      path_export = export_path, file_name = roi_name, 
+      path_export = if (save_each_ROI) atlas_export_path else NULL, 
+      file_name = roi_name, 
       width = width, overwrite = overwrite
     )
     
-    # Save the result if save_each_ROI is TRUE
+    # Save ROI-specific results only if save_each_ROI is TRUE
     if (save_each_ROI) {
       rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
       tryCatch({
@@ -143,6 +150,7 @@ smoothing_multiple_ROIs <- function(path_FC,
   
   return(results)
 }
+
 
 ## 🟨 Single : smoothing by bspline gcv =======================================================================
 smoothing_by_bspline_gcv <- function(kth_ROI, 
