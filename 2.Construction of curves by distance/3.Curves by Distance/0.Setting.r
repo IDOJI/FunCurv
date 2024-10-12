@@ -43,6 +43,25 @@ select = dplyr::select
 
 
 # 🟥 Define Functions ##########################################################################
+##  🟩 path ===============================================================================
+# 경로 자동 변환 함수 정의
+adjust_path <- function(path) {
+  # 운영체제에 따라 기본 경로 앞부분 설정
+  if (.Platform$OS.type == "windows") {
+    # macOS 경로를 Windows 경로로 변환
+    path <- sub("^/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/", "E:/", path)
+  } else if (.Platform$OS.type == "unix" && grepl("darwin", R.version$os)) {
+    # 이미 macOS 경로이므로 그대로 유지
+    path <- path
+  } else {
+    stop("지원되지 않는 운영체제입니다.")
+  }
+  
+  # 최종 경로 반환
+  return(path)
+}
+
+
 ##  🟩 plot ===============================================================================
 ggplot___lines = function(df,
                           col_names = NULL,
@@ -155,171 +174,110 @@ ggplot___lines = function(df,
 
 
 ## 🟩 FC ==================================================================================================
-extract_unique_roi <- function(data_list) {
-  # ROI 열 추출
-  roi_list <- lapply(data_list, function(kth_rid) {
-    kth_rid[,"ROI"]
-  })
-  
-  # 모든 ROI 열이 동일한지 확인
-  if (all(sapply(roi_list, function(x) identical(x, roi_list[[1]])))) {
-    # 모두 같으면 첫 번째 ROI만 남김
-    unique_roi <- roi_list[[1]]
-  } else {
-    # 동일하지 않으면 에러 메시지 출력
-    stop("Error: Not all ROI columns are identical.")
+combine_fisher_z_fc <- function(data_list) {
+  # Dist와 ROI가 동일한지 확인
+  dist_roi_check <- lapply(data_list, function(df) df[, c("Dist", "ROI")])
+  # x = dist_roi_check[[2]]
+  if (!all(sapply(dist_roi_check, function(x) identical(x, dist_roi_check[[1]])))) {
+    stop("Error: Not all 'Dist' and 'ROI' columns are identical across data frames.")
   }
   
-  return(unique_roi)
+  # 동일한 Dist와 ROI를 기준으로 결합
+  dist_and_roi <- dist_roi_check[[1]]  # Dist와 ROI를 포함한 첫 번째 데이터프레임
+  
+  # 각 데이터프레임의 Fisher_Z_FC 열 이름을 리스트 원소 이름으로 변경하여 cbind
+  combined_data <- lapply(names(data_list), function(name) {
+    # name = names(data_list)[1]
+    df <- data_list[[name]]
+    df[["Fisher_Z_FC"]] %>% as_tibble %>% setNames(name)  # 열 이름을 리스트 원소 이름으로 변경
+  }) %>% do.call(cbind, .) %>% cbind(dist_and_roi, .) %>% as_tibble
+  
+  return(combined_data)
 }
-
-
-
-extract_unique_dist <- function(data_list) {
-  # ROI 열 추출
-  roi_list <- lapply(data_list, function(kth_rid) {
-    kth_rid[,"Euclid_Distance"]
-  })
-  
-  # 모든 ROI 열이 동일한지 확인
-  if (all(sapply(roi_list, function(x) identical(x, roi_list[[1]])))) {
-    # 모두 같으면 첫 번째 ROI만 남김
-    unique_roi <- roi_list[[1]]
-  } else {
-    # 동일하지 않으면 에러 메시지 출력
-    stop("Error: Not all Dist columns are identical.")
-  }
-  
-  return(unique_roi)
-}
-
-
-
-
-# 함수 정의
-extract_fc_data <- function(ith_fc, ith_sorted_dist) {
-  each_roi_sorted_fc_data <- lapply(names(ith_fc), function(rid) {
-    roi <- names(ith_sorted_dist)[1]
-    dist_each_roi <- ith_sorted_dist[[roi]]
-    
-    # FC 값을 필터링
-    fc <- ith_fc[[rid]][, roi] %>%
-      keep(names(.) %in% names(dist_each_roi)) %>%
-      .[names(dist_each_roi)]
-    
-    # 데이터프레임 생성
-    df <- data.frame(
-      ROI_1 = names(dist_each_roi),
-      ROI_2 = names(fc),
-      Euclid_Distance = dist_each_roi,
-      FC = fc,
-      stringsAsFactors = FALSE
-    )
-    row.names(df) <- NULL
-    
-    # ROI_1과 ROI_2가 동일한 경우 처리
-    if (all(df$ROI_1 == df$ROI_2)) {
-      df$ROI_1 <- NULL
-      df <- df %>% rename(ROI = ROI_2)
-    }
-    
-    return(df)  
-  }) %>% setNames(names(ith_fc))
-  
-  return(each_roi_sorted_fc_data)
-}
-
-
-
-# 함수 정의
-extract_fc_columns <- function(data_list) {
-  # 각 데이터프레임에서 FC 열을 추출하고 cbind 형태로 결합
-  fc_data <- do.call(cbind, lapply(data_list, function(df) df$FC)) %>% 
-    as.data.frame
-  
-  # 열 이름을 원래 리스트의 원소 이름으로 변경
-  colnames(fc_data) <- names(data_list)
-  
-  return(fc_data)
-}
-
-
-library(dplyr)
-library(crayon)
-library(tools)
-
-library(dplyr)
-library(crayon)
-library(tools)
 
 # FC 데이터를 처리하고 저장하는 함수 정의
 process_and_save_fc_data <- function(path_folder, path_save, sorted_dist) {
-  # FC 데이터 파일 목록 가져오기
+  require(tools)
   fc_data_list <- list.files(path_folder, full.names = TRUE)
   
-  # 각 파일에 대해 반복
   for (ith_fc_path in fc_data_list) {
-    # 아틀라스 이름 추출
     ith_atlas <- basename(ith_fc_path) %>%
       file_path_sans_ext() %>%
       sub("_combined_Fisher_Z_fc$", "", .)
     
-    # 저장할 파일 경로 설정
-    save_file_path <- file.path(path_save, paste0(ith_atlas, "_.rds"))
+    save_file_path <- file.path(path_save, paste0(ith_atlas, ".rds"))
     
-    # 파일이 이미 존재하는지 확인하고, 존재하면 건너뜀
     if (file.exists(save_file_path)) {
       cat(crayon::red(paste("File already exists for atlas:", ith_atlas, ". Skipping processing.\n")))
       next
     }
     
-    # 시작 시간 기록
     total_start_time <- Sys.time()
     
-    # FC 데이터 읽기
-    ith_fc <- readRDS(ith_fc_path)
+    tryCatch({
+      ith_fc <- readRDS(ith_fc_path)
+    }, error = function(e) {
+      cat(crayon::red(paste("Error reading file:", ith_fc_path, "\n")))
+      next
+    })
     
-    # 거리 정보 정렬
     ith_sorted_dist <- sorted_dist[[ith_atlas]]
-    
-    # 초기화
     ith_sorted_FC_data <- list()
     
-    # 각 ROI에 대해 반복
-    for (roi in names(ith_sorted_dist)) {
+    # Sorting
+    tictoc::tic("Sorting")
+    each_rid_sorted_FC_list = lapply(names(ith_fc), function(rid){
+      rid_fc = ith_fc[[rid]]
+      
+      rid_sorted_FC_list = lapply(names(ith_sorted_dist), function(roi){
+        roi_rid_fc = rid_fc[,roi]
+        roi_dist = ith_sorted_dist[[roi]]
+        selected_roi_rid_fc = roi_rid_fc[names(roi_rid_fc) %in% names(roi_dist)]
+        sorted_selected_roi_rid_fc = selected_roi_rid_fc[names(roi_dist)]
+        data.frame(Dist = roi_dist, ROI = names(sorted_selected_roi_rid_fc), Fisher_Z_FC = sorted_selected_roi_rid_fc) %>% as_tibble
+      }) %>% setNames(names(ith_sorted_dist))
+    }) %>% setNames(names(ith_fc))
+    tictoc::toc()
+    
+    
+    # Combine
+    # roi = names(ith_sorted_dist)[1]
+    # ROI 별로 데이터 처리 및 시간 측정 함수
+    final_combined_data_list <- lapply(names(ith_sorted_dist), function(roi) {
+      
       # 시작 시간 기록
       start_time <- Sys.time()
       
-      # 각 ROI에 대한 데이터 처리
-      each_roi_sorted_fc_data <- extract_fc_data(ith_fc, ith_sorted_dist)
-      
-      # 데이터프레임 합치기
-      unique_roi_result <- extract_unique_roi(each_roi_sorted_fc_data)
-      unique_dist_result <- extract_unique_dist(each_roi_sorted_fc_data)
-      combined_fc_data <- extract_fc_columns(each_roi_sorted_fc_data) %>%
-        cbind(ROI = unique_roi_result, Euclid_dist = unique_dist_result, .)
-      
-      # 결과 저장
-      ith_sorted_FC_data[[roi]] <- combined_fc_data
+      # 각 rid에 대해 Fisher_Z_FC 결합
+      combined_roi_fc <- lapply(names(each_rid_sorted_FC_list), function(rid) {
+        each_rid_sorted_FC_list[[rid]][[roi]]
+      }) %>% 
+        setNames(names(each_rid_sorted_FC_list)) %>% 
+        combine_fisher_z_fc
       
       # 종료 시간 기록 및 소요 시간 계산
       end_time <- Sys.time()
       elapsed_time <- end_time - start_time
       
-      # 결과 출력: ROI와 소요 시간을 각각 다른 색상으로 출력
-      cat(crayon::blue(paste("Finished processing ROI:", roi, "\n")))
-      cat(crayon::green(paste("Time taken for ROI", roi, ":", round(elapsed_time, 2), "seconds\n")))
-    }
+      # 메시지 출력: atlas 이름과 roi 이름, 소요 시간 포함
+      cat(crayon::blue(paste0("Finished processing atlas: ", ith_atlas, 
+                              " | ROI: ", roi, "\n")))
+      cat(crayon::green(paste0("Time taken for ROI ", roi, ": ", 
+                               round(elapsed_time, 2), " seconds\n")))
+      
+      return(combined_roi_fc)
+      
+    }) %>% setNames(names(ith_sorted_dist))
     
-    # 결과를 파일로 저장
-    saveRDS(ith_sorted_FC_data, save_file_path)
+    saveRDS(final_combined_data_list, save_file_path)
     
-    # 전체 소요 시간 출력
     total_end_time <- Sys.time()
     total_elapsed_time <- total_end_time - total_start_time
     cat(crayon::yellow(paste0("Finished processing atlas: ", ith_atlas, " | Total time taken: ", round(total_elapsed_time, 2), " seconds\n")))
   }
 }
+
+
 
 
 ## 🟩 ReHo, DC, ALFF ==================================================================================================

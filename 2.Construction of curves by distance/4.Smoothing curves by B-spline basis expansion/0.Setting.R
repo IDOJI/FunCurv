@@ -36,11 +36,33 @@ filter = dplyr::filter
 select = dplyr::select
 
 
+# 경로 자동 변환 함수 정의
+adjust_path <- function(path) {
+  # 운영체제에 따라 기본 경로 앞부분 설정
+  if (.Platform$OS.type == "windows") {
+    # macOS 경로를 Windows 경로로 변환
+    path <- sub("^/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/", "E:/", path)
+  } else if (.Platform$OS.type == "unix" && grepl("darwin", R.version$os)) {
+    # 이미 macOS 경로이므로 그대로 유지
+    path <- path
+  } else {
+    stop("지원되지 않는 운영체제입니다.")
+  }
+  
+  # 최종 경로 반환
+  return(path)
+}
+
 
 
 # 🟥 Define smoothing functions =========================================================================================================
 ## 🟨 Multiple : smoothing by bspline gcv =======================================================================
-smoothing_multiple_ROIs = function(path_FC, n_order, n_breaks, lambdas, path_export, save_each_ROI = FALSE){
+smoothing_multiple_ROIs = function(path_FC, 
+                                   n_order, 
+                                   n_breaks = NULL, 
+                                   lambdas, 
+                                   path_export, 
+                                   save_each_ROI = FALSE){
   library(magrittr)
   library(fda)
   library(crayon)  # Load the crayon package for colored output
@@ -126,7 +148,7 @@ smoothing_by_bspline_gcv = function(kth_ROI,
                                     domain, 
                                     n_order, 
                                     lambdas,
-                                    n_breaks,
+                                    n_breaks = NULL,
                                     path_export = NULL, 
                                     file_name = "smoothing_result",
                                     width = 2000){
@@ -136,6 +158,10 @@ smoothing_by_bspline_gcv = function(kth_ROI,
   
   # Convert kth_ROI to matrix
   X = kth_ROI %>% as.matrix
+  
+  if(is.null(n_breaks)){
+    n_breaks = nrow(X)
+  }
   
   # Initial plot before smoothing
   if (!is.null(path_export)) {
@@ -163,10 +189,7 @@ smoothing_by_bspline_gcv = function(kth_ROI,
     return(readRDS(smoothing_result_file))  # Return the saved result if it exists
   }
   
-  # Define bspline basis
-  if(is.null(n_breaks)){
-    n_breaks = nrow(kth_ROI)
-  }
+
   fdobj_basis = create.bspline.basis(rangeval = c(min(domain), max(domain)), 
                                      norder = n_order, 
                                      breaks = seq(from = min(domain), to = max(domain), length.out = n_breaks))

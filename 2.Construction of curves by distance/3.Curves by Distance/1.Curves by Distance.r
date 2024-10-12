@@ -1,35 +1,36 @@
 # 🟥 Load the sorted dist data ==========================================================================================
-path_sorted_dist = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Construction of curves by distance/2.Arrange the distances for each ROI by the size/Sorted ROI by dist.rds"
+path_sorted_dist = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/2.Arrange the distances for each ROI by the size/Sorted ROI by dist.rds"
+path_sorted_dist = path_sorted_dist %>% adjust_path()
 sorted_dist = readRDS(path_sorted_dist)
-names(sorted_dist)
 
 
 
-
-# 🟧 Sort each dataset ===========================================================================================
-## 🟩 @ Functional Connectivity ===============================================
+# 🟥 Sort each dataset ===========================================================================================
+## 🟩 FC ===============================================
 ### 🟨 FunImgARCWSF ===============================================================
+# FC files list
+path_folder = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/ADNI_SB/✴️⭐️3.ROI-defined results/✅✴️⭐️2.Functional Connectivity/FunImgARCWSF/Fisher Z Transformation"
+path_folder = path_folder %>% adjust_path
 # save path
-path_save = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/4.Curves by Distance/FunImgARCWSF/FC"
-
-# Files list
-path_folder = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/✴️⭐️3.ROI-defined results/✅✴️⭐️2.Functional Connectivity/FunImgARCWSF/Fisher Z Transformation"
+path_save = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC"
+path_save = path_save %>% adjust_path
 
 # process and save 
-# process_and_save_fc_data(path_folder, path_save, sorted_dist)
+process_and_save_fc_data(path_folder, path_save, sorted_dist)
 
 
 
 
 ### 🟨 FunImgARglobalCWSF ===============================================================
+# FC files list
+path_folder = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/ADNI_SB/✴️⭐️3.ROI-defined results/✅✴️⭐️2.Functional Connectivity/global/Fisher Z Transformation"
+path_folder = path_folder %>% adjust_path
 # save path
-path_save = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/4.Curves by Distance/FunImgARglobalCWSF"
-
-# Files list
-path_folder = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/✴️⭐️3.ROI-defined results/✅✴️⭐️2.Functional Connectivity/global/Fisher Z Transformation"
+path_save = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/Fisher Z FC"
+path_save = path_save %>% adjust_path
 
 # process and save 
-# process_and_save_fc_data(path_folder, path_save, sorted_dist)
+process_and_save_fc_data(path_folder, path_save, sorted_dist)
 
 
 
