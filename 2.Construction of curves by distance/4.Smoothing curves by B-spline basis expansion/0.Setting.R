@@ -69,24 +69,29 @@ smoothing_multiple_ROIs <- function(path_FC,
   atlas_name <- tools::file_path_sans_ext(basename(path_FC))
   atlas_export_path <- file.path(path_export, atlas_name)
   
+  # Create the export directory if it doesn't exist
   if (!dir.exists(atlas_export_path)) {
     tryCatch({
       dir.create(atlas_export_path, recursive = TRUE)
-      cat(green("Created export directory at:"), bold(atlas_export_path), "\n")
+      cat(crayon::green("Created export directory at:"), bold(atlas_export_path), "\n")
     }, error = function(e) {
-      stop(red("Error: Failed to create export directory at:"), bold(atlas_export_path), "\n")
+      stop(crayon::red("Error: Failed to create export directory at:"), bold(atlas_export_path), "\n")
     })
   }
   
+  # Check if the final results file exists
   final_results_file <- file.path(atlas_export_path, "results_smoothed.rds")
   if (file.exists(final_results_file) && file.info(final_results_file)$size > 0) {
-    cat(yellow("[INFO] Skipping smoothing process: Final results file already exists\n"))
+    cat(crayon::yellow("[INFO] Skipping smoothing process: Final results file already exists\n"))
     return(readRDS(final_results_file))
   }
   
+  # Read the FC data from the RDS file
   FC <- readRDS(path_FC)
+  
+  # Apply smoothing to each ROI
   results <- lapply(names(FC), function(roi_name) {
-    cat(cyan("[INFO] Processing ROI:"), bold(roi_name), "\n")
+    cat(crayon::cyan("[INFO] Processing ROI:"), bold(roi_name), "\n")
     
     kth_ROI <- FC[[roi_name]]
     domain <- kth_ROI$Dist
@@ -95,46 +100,49 @@ smoothing_multiple_ROIs <- function(path_FC,
     file_name <- paste0(roi_name, "_smoothed_result.png")
     file_path <- file.path(atlas_export_path, file_name)
     
+    # Skip processing if the plot file already exists and overwrite is FALSE
     if (file.exists(file_path) && file.info(file_path)$size > 0 && !overwrite) {
-      cat(yellow("[INFO] Skipping ROI:"), bold(roi_name), "\n")
+      cat(crayon::yellow("[INFO] Skipping ROI:"), bold(roi_name), "\n")
       return(NULL)
     }
     
-    rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
-    if (save_each_ROI && file.exists(rds_file_path) && file.info(rds_file_path)$size > 0) {
-      cat(yellow("[INFO] ROI already processed:"), bold(roi_name), "\n")
-      return(readRDS(rds_file_path))
-    }
+    # If save_each_ROI is TRUE, use the actual export path; otherwise, use a temporary path
+    export_path <- if (save_each_ROI) atlas_export_path else tempdir()
     
+    # Call the smoothing function
     smoothing_result <- smoothing_by_bspline_gcv(
-      kth_ROI, domain, n_order, lambdas, n_breaks, atlas_export_path, 
-      file_name, width, overwrite
+      kth_ROI, domain, n_order, lambdas, n_breaks, 
+      path_export = export_path, file_name = roi_name, 
+      width = width, overwrite = overwrite
     )
     
+    # Save the result if save_each_ROI is TRUE
     if (save_each_ROI) {
+      rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
       tryCatch({
         saveRDS(smoothing_result, rds_file_path)
-        cat(green("[INFO] Saved result for ROI:"), bold(roi_name), "\n")
+        cat(crayon::green("[INFO] Saved result for ROI:"), bold(roi_name), "\n")
       }, error = function(e) {
-        cat(red("[ERROR] Failed to save result for ROI:"), bold(roi_name), "\n")
+        cat(crayon::red("[ERROR] Failed to save result for ROI:"), bold(roi_name), "\n")
       })
     }
     
     return(smoothing_result)
   }) %>% setNames(names(FC))
   
+  # Filter out NULL results
   results <- results[!sapply(results, is.null)]
   if (length(results) == 0) {
-    cat(yellow("[INFO] All ROIs already processed. No new results.\n"))
+    cat(crayon::yellow("[INFO] All ROIs already processed. No new results.\n"))
     return(invisible(NULL))
   }
   
+  # Save the final results after all ROIs are processed
   saveRDS(results, final_results_file)
-  cat(green("[INFO] Saved final results at:"), bold(final_results_file), "\n")
+  cat(crayon::green("[INFO] Saved final results at:"), bold(final_results_file), "\n")
   
   return(results)
 }
-
 
 ## 🟨 Single : smoothing by bspline gcv =======================================================================
 smoothing_by_bspline_gcv <- function(kth_ROI, 
