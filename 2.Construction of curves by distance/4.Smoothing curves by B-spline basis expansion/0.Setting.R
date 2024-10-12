@@ -58,6 +58,7 @@ adjust_path <- function(path) {
 # 🟥 Define smoothing functions =========================================================================================================
 ## 🟨 Multiple : smoothing by bspline gcv =======================================================================
 smoothing_multiple_ROIs <- function(path_FC_atlas, 
+                                    train_RID,
                                     n_order, 
                                     n_breaks = NULL, 
                                     lambdas, 
@@ -65,7 +66,7 @@ smoothing_multiple_ROIs <- function(path_FC_atlas,
                                     save_each_ROI = FALSE,
                                     width = 2000,
                                     overwrite = TRUE) {
-  
+  ### 🟩 경로 설정 =====================================================
   atlas_name <- tools::file_path_sans_ext(basename(path_FC_atlas))
   atlas_export_path <- file.path(path_export, atlas_name)
   
@@ -79,80 +80,121 @@ smoothing_multiple_ROIs <- function(path_FC_atlas,
     })
   }
   
-  # Check if the final results file exists
-  final_results_file <- file.path(atlas_export_path, "results_smoothed.rds")
-  if (file.exists(final_results_file) && file.info(final_results_file)$size > 0) {
-    cat(crayon::yellow("[INFO] Skipping smoothing process: Final results file already exists\n"))
-    return(readRDS(final_results_file))
-  }
   
+  
+  ### 🟩 데이터 나누기 =====================================================
   # Read the FC data from the RDS file
   FC <- readRDS(path_FC_atlas)
   
-  # Apply smoothing to each ROI
-  results <- lapply(names(FC), function(roi_name) {
-    # roi_name = names(FC)[1]
-    cat(crayon::cyan("[INFO] Processing ROI:"), bold(roi_name), "\n")
-    
-    kth_ROI <- FC[[roi_name]]
-    domain <- kth_ROI$Dist
-    kth_ROI$ROI <- kth_ROI$Dist <- NULL
-    
-    file_name <- paste0(roi_name, "_smoothed_result.png")
-    file_path <- file.path(atlas_export_path, file_name)
-    
-    # Skip processing if the plot file already exists and overwrite is FALSE
-    if (file.exists(file_path) && file.info(file_path)$size > 0 && !overwrite) {
-      cat(crayon::yellow("[INFO] Skipping ROI:"), bold(roi_name), "\n")
-      return(NULL)
-    }
-    
-    # **Call smoothing function without saving if save_each_ROI is FALSE**
-    # save_each_ROI=F
-    if (save_each_ROI) {
-      rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
-      if (file.exists(rds_file_path) && file.info(rds_file_path)$size > 0) {
-        cat(crayon::yellow("[INFO] ROI already processed:"), crayon::bold(roi_name), "\n")
-        return(readRDS(rds_file_path))
-      }
-    }
-    
-    # Perform smoothing
-    smoothing_result <- smoothing_by_bspline_gcv(
-      kth_ROI, domain, n_order, lambdas, n_breaks, 
-      path_export = atlas_export_path, 
-      file_name = roi_name, 
-      width = width, overwrite = overwrite
-    )
-    
-    # Save ROI-specific results only if save_each_ROI is TRUE
-    if (save_each_ROI) {
-      rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
-      tryCatch({
-        saveRDS(smoothing_result, rds_file_path)
-        cat(crayon::green("[INFO] Saved result for ROI:"), bold(roi_name), "\n")
-      }, error = function(e) {
-        cat(crayon::red("[ERROR] Failed to save result for ROI:"), bold(roi_name), "\n")
-      })
-    }
-    
-    return(smoothing_result)
+  # Split FC by train and test
+  FC_train <- lapply(FC, function(X) {
+    X %>% select(all_of(c(names(X)[1:2], train_RID)))
   }) %>% setNames(names(FC))
   
-  # Filter out NULL results
-  results <- results[!sapply(results, is.null)]
-  if (length(results) == 0) {
-    cat(crayon::yellow("[INFO] All ROIs already processed. No new results.\n"))
-    return(invisible(NULL))
+  FC_test <- lapply(FC, function(X) {
+    test_columns <- setdiff(names(X), train_RID)
+    X %>% select(all_of(test_columns))
+  }) %>% setNames(names(FC))
+  
+  
+  ### 🟩 경로 생성 =====================================================
+  # Train과 Test 결과를 저장할 경로 생성
+  train_export_path <- file.path(atlas_export_path, "train")
+  test_export_path <- file.path(atlas_export_path, "test")
+  
+  dir.create(train_export_path, recursive = TRUE, showWarnings = FALSE)
+  dir.create(test_export_path, recursive = TRUE, showWarnings = FALSE)
+  
+  
+  ### 🟩 Train 데이터 처리 =====================================================
+  results_train <- lapply(names(FC_train), function(roi_name) {
+    process_single_ROI(
+      roi_name, FC_train, train_export_path, n_order, lambdas, 
+      n_breaks, width, overwrite, save_each_ROI
+    )
+  }) %>% setNames(names(FC_train))
+  # Train 결과 저장
+  results_train <- results_train[!sapply(results_train, is.null)]
+  if (length(results_train) > 0) {
+    train_results_file <- file.path(train_export_path, "results_train_smoothed.rds")
+    saveRDS(results_train, train_results_file)
+    cat(crayon::green("[INFO] Saved train results at:"), bold(train_results_file), "\n")
+  } else {
+    cat(crayon::yellow("[INFO] No new train results to save.\n"))
   }
+  results_train = NULL
   
-  # Save the final results after all ROIs are processed
-  saveRDS(results, final_results_file)
-  cat(crayon::green("[INFO] Saved final results at:"), bold(final_results_file), "\n")
   
-  return(results)
+  
+  ### 🟩 Test 데이터 처리 =====================================================
+  # Test 데이터 처리
+  results_test <- lapply(names(FC_test), function(roi_name) {
+    process_single_ROI(
+      roi_name, FC_test, test_export_path, n_order, lambdas, 
+      n_breaks, width, overwrite, save_each_ROI
+    )
+  }) %>% setNames(names(FC_test))
+  
+  # Test 결과 저장
+  results_test <- results_test[!sapply(results_test, is.null)]
+  if (length(results_test) > 0) {
+    test_results_file <- file.path(test_export_path, "results_test_smoothed.rds")
+    saveRDS(results_test, test_results_file)
+    cat(crayon::green("[INFO] Saved test results at:"), bold(test_results_file), "\n")
+  } else {
+    cat(crayon::yellow("[INFO] No new test results to save.\n"))
+  }
+  results_test = NULL
+  
 }
 
+
+## 🟨 Single ROI =======================================================================
+process_single_ROI <- function(roi_name, FC, atlas_export_path, n_order, lambdas, 
+                               n_breaks, width, overwrite, save_each_ROI) {
+  cat(crayon::cyan("[INFO] Processing ROI:"), bold(roi_name), "\n")
+  
+  kth_ROI <- FC[[roi_name]]
+  domain <- kth_ROI$Dist
+  kth_ROI$ROI <- kth_ROI$Dist <- NULL
+  
+  file_name <- paste0(roi_name, "_smoothed_result.png")
+  file_path <- file.path(atlas_export_path, file_name)
+  
+  # 이미 존재하는 경우 처리 건너뛰기
+  if (file.exists(file_path) && file.info(file_path)$size > 0 && !overwrite) {
+    cat(crayon::yellow("[INFO] Skipping ROI:"), bold(roi_name), "\n")
+    return(NULL)
+  }
+  
+  if (save_each_ROI) {
+    rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
+    if (file.exists(rds_file_path) && file.info(rds_file_path)$size > 0) {
+      cat(crayon::yellow("[INFO] ROI already processed:"), crayon::bold(roi_name), "\n")
+      return(readRDS(rds_file_path))
+    }
+  }
+  
+  # 스무딩 수행
+  smoothing_result <- smoothing_by_bspline_gcv(
+    kth_ROI, domain, n_order, lambdas, n_breaks, 
+    path_export = atlas_export_path, 
+    file_name = roi_name, 
+    width = width, overwrite = overwrite
+  )
+  
+  if (save_each_ROI) {
+    rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
+    tryCatch({
+      saveRDS(smoothing_result, rds_file_path)
+      cat(crayon::green("[INFO] Saved result for ROI:"), bold(roi_name), "\n")
+    }, error = function(e) {
+      cat(crayon::red("[ERROR] Failed to save result for ROI:"), bold(roi_name), "\n")
+    })
+  }
+  
+  return(smoothing_result)
+}
 
 ## 🟨 Single : smoothing by bspline gcv =======================================================================
 smoothing_by_bspline_gcv <- function(kth_ROI, 

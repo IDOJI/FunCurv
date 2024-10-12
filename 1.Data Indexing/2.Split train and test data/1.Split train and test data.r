@@ -2,9 +2,11 @@
 path_subjects = "/Users/Ido/Documents/✴️DataAnalysis/ADNI/RS.fMRI/0.Selected Subjects List/9.MT1-EPI-Merged-Subjects-List.csv"
 subjects = read.csv(path_subjects)
 
-subjects$DIAGNOSIS_FINAL
 
 
+# 🟥 Select only SB ==========================================================================================
+subjects = subjects %>% dplyr::filter(EPI___BAND.TYPE == "SB")
+dim(subjects)
 
 
 # 🟥 Extract test & train indices ==========================================================================================
@@ -24,7 +26,9 @@ test_indices <- rownames(test)
 
 ## 🟨 check the splitted data ==============================================================================
 # check the proportion
+test$DIAGNOSIS_FINAL %>% table
 test$DIAGNOSIS_FINAL %>% table %>% prop.table
+train$DIAGNOSIS_FINAL %>% table
 train$DIAGNOSIS_FINAL %>% table %>% prop.table
 
 # Check the sample size
@@ -50,8 +54,8 @@ folded_data$Fold_1_Train$DIAGNOSIS_FINAL %>% table %>% prop.table
 
 
 
-## 🟨 Export data ==============================================================================
-output_path = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/2.Split train and test data"
+# 🟨 Export data ==============================================================================
+output_path = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/2.Split train and test data"
 
 # 파일명 생성 함수: 경로, 파일 유형(train/test), seed 정보 포함
 create_filename <- function(base_path, data_type, seed) {
@@ -63,9 +67,13 @@ create_filename <- function(base_path, data_type, seed) {
 train_file <- create_filename(output_path, "train", seed)
 test_file <- create_filename(output_path, "test", seed)
 
+# Fold로 나누지 않은 전체 train 데이터를 위한 파일명 생성
+all_train_file <- create_filename(output_path, "all_train_data", seed)
+
 # 데이터 저장
-saveRDS(folded_data, train_file)
-saveRDS(test, test_file)
+saveRDS(folded_data, train_file)   # Fold 데이터 저장
+saveRDS(test, test_file)            # Test 데이터 저장
+saveRDS(train, all_train_file)      # 전체 train 데이터 저장
 
 
 
