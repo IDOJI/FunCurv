@@ -313,9 +313,10 @@ smoothing_by_bspline_gcv <- function(kth_ROI,
   
   # Helper function to add rotated x-axis labels
   add_rotated_x_labels <- function(domain) {
+    labels <- if (!is.null(names(domain))) names(domain) else as.character(domain)
     axis(1, at = domain, labels = FALSE)  # 기본 x축 눈금 추가
-    text(x = round(domain, 3), y = par("usr")[3] - 0.05 * diff(par("usr")[3:4]), 
-         labels = domain, srt = 45, adj = 1, xpd = TRUE)  # 레이블 회전 추가
+    text(x = domain, y = par("usr")[3] - 0.05 * diff(par("usr")[3:4]), 
+         labels = labels, srt = 45, adj = 1, xpd = TRUE)  # 레이블 회전 추가
   }
   
   # Before smoothing plot
