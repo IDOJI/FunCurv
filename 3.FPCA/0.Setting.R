@@ -42,6 +42,30 @@ select = dplyr::select
 library(fda)
 library(crayon)
 library(tictoc)
+## 🟨 여러 아틀라스에 FPCA 실행 ==========================================================================
+perform_fpca_for_multiple_atlases <- function(input_paths, output_path, initial_nharm = 50, portion = 0.9, export_each_roi = FALSE) {
+  # 여러 경로에서 모든 아틀라스 파일 목록 수집
+  all_atlas_paths <- unlist(lapply(input_paths, function(input_path) {
+    list.files(input_path, full.names = TRUE)
+  }))
+  
+  # 아틀라스별로 FPCA 수행
+  results_list <- lapply(all_atlas_paths, function(atlas_path) {
+    smoothing_result_paths <- list.files(file.path(atlas_path, "train"), pattern = "\\.rds$", full.names = TRUE)
+    
+    perform_fpca_for_all(
+      path_smoothing_results = smoothing_result_paths,
+      initial_nharm = initial_nharm,
+      portion = portion,
+      output_base_dir = file.path(output_path, basename(atlas_path)),
+      export.each.roi = export_each_roi
+    )
+  })
+  
+  return(invisible(results_list))
+}
+
+
 ## 🟨 메시지 출력 함수 ==========================================================================
 print_message <- function(message, color_func = crayon::green) {
   cat(color_func(message), "\n")
@@ -109,32 +133,36 @@ perform_fpca_for_all <- function(path_smoothing_results, initial_nharm = 50, por
   base_folder_name <- basename(dirname(path_smoothing_results))
   output_dir <- file.path(output_base_dir, base_folder_name)
   
-  if(is.null(names(smoothing_results))){
-    names(smoothing_results) = paste0("ROI_", 1:length(smoothing_results))  
+  if (is.null(names(smoothing_results))) {
+    names(smoothing_results) <- paste0("ROI_", 1:length(smoothing_results))  
   }
-  
-  
   
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
     print_message(sprintf("Created directory: %s", output_dir), crayon::green)
   }
   
+  final_output_file <- file.path(output_dir, paste0(base_folder_name, "_fpca_all_results.rds"))
+  combined_pc_scores_file <- file.path(output_dir, paste0(base_folder_name, "_combined_pc_scores.rds"))
+  
+  # 파일 존재 여부 확인 및 조기 종료
+  if (file.exists(final_output_file) && file.exists(combined_pc_scores_file)) {
+    print_message(sprintf("Files already exist: %s and %s. Exiting without computation.", 
+                          final_output_file, combined_pc_scores_file), crayon::yellow)
+    return(invisible(NULL))
+  }
+  
   tictoc::tic("FPCA computation completed")
   all_results <- lapply(names(smoothing_results), function(roi_name) {
-    # roi_name = names(smoothing_results)[1]
     roi_obj <- smoothing_results[[roi_name]]
     process_single_roi(roi_obj, roi_name, output_dir, export.each.roi, initial_nharm, portion)
-  })%>% setNames(paste0("FPCA_", names(smoothing_results)))
+  }) %>% setNames(paste0("FPCA_", names(smoothing_results)))
   tictoc::toc()
   
   combined_pc_scores <- do.call(cbind, lapply(names(all_results), function(ith_ROI) {
     names(all_results[[ith_ROI]]$scores) <- paste0(ith_ROI, "_FPC_", seq_len(ncol(all_results[[ith_ROI]]$scores)))
     return(all_results[[ith_ROI]]$scores)
   }))
-  
-  final_output_file <- file.path(output_dir, paste0(base_folder_name, "_fpca_all_results.rds"))
-  combined_pc_scores_file <- file.path(output_dir, paste0(base_folder_name, "_combined_pc_scores.rds"))
   
   saveRDS(all_results, final_output_file)
   saveRDS(combined_pc_scores, combined_pc_scores_file)
