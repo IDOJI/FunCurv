@@ -62,7 +62,7 @@ options_for_each_atlas_list <- list(
                       n_breaks = NULL, 
                       lambdas = exp(seq(-2, -1, 0.5))),
   "600Parcels" = list(n_order = 4,
-                      n_breaks = 200, 
+                      n_breaks = NULL, 
                       lambdas = exp(seq(-2, -1, 0.5))),
   "500Parcels" = list(n_order = 4,
                       n_breaks = NULL, 
@@ -86,8 +86,7 @@ options_for_each_atlas_list <- list(
 ## 🟨 FunImgARCWSF ====================================================================================================================
 path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC"
 path_FC = path_FC %>% adjust_path
-# path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_FC"
-path_export = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/2.Construction of curves by distance/4.Smoothing Curves by B-spline basis expansion/FunImgARCWSF_FC"
+path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_FC"
 path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(base_path = path_FC, 
                                train_folded,
@@ -95,7 +94,7 @@ apply_smoothing_to_atlas_files(base_path = path_FC,
                                options_for_each_atlas_list = options_for_each_atlas_list, 
                                common_options = list(path_export = path_export, 
                                                      save_each_ROI = FALSE, 
-                                                     overwrite = FALSE))
+                                                     overwrite = TRUE))
 
 
 
@@ -112,7 +111,7 @@ apply_smoothing_to_atlas_files(base_path = path_FC,
                                options_for_each_atlas_list = options_for_each_atlas_list, 
                                common_options = list(path_export = path_export, 
                                                      save_each_ROI = FALSE, 
-                                                     overwrite = FALSE))
+                                                     overwrite = TRUE))
 
 
 
@@ -175,7 +174,7 @@ options_for_each_atlas_list <- list(
   
   
   "600Parcels" = list(n_order = 4,
-                      n_breaks = 200, 
+                      n_breaks = NULL, 
                       lambdas = exp(seq(-2, -1, 0.5))),
   "500Parcels" = list(n_order = 4,
                       n_breaks = NULL, 
@@ -207,7 +206,7 @@ apply_smoothing_to_atlas_files(base_path = path_FC,
                                options_for_each_atlas_list = options_for_each_atlas_list, 
                                common_options = list(path_export = path_export, 
                                                      save_each_ROI = FALSE, 
-                                                     overwrite = FALSE))
+                                                     overwrite = TRUE))
 
 
 ## 🟨 FunImgARglobalCWSF ====================================================================================================================
@@ -221,7 +220,7 @@ apply_smoothing_to_atlas_files(base_path = path_FC,
                                options_for_each_atlas_list = options_for_each_atlas_list, 
                                common_options = list(path_export = path_export, 
                                                      save_each_ROI = FALSE, 
-                                                     overwrite = FALSE))
+                                                     overwrite = TRUE))
 
 
 
