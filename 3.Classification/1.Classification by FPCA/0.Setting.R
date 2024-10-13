@@ -43,7 +43,7 @@ library(fda)
 library(crayon)
 library(tictoc)
 ## 🟨 여러 아틀라스에 FPCA 실행 ==========================================================================
-perform_fpca_for_multiple_atlases <- function(input_paths, output_path, initial_nharm = 50, portion = 0.9, export_each_roi = FALSE) {
+perform_fpca_for_multiple_atlases <- function(train_fold, input_paths, output_path, initial_nharm = 50, portion = 0.9, export_each_roi = FALSE) {
   # 여러 경로에서 모든 아틀라스 파일 목록 수집
   all_atlas_paths <- unlist(lapply(input_paths, function(input_path) {
     list.files(input_path, full.names = TRUE)
@@ -127,6 +127,8 @@ process_single_roi <- function(roi_obj, roi_name, output_dir, export.each.roi, i
   
   return(result)
 }
+
+
 ## 🟨 모든 ROI에 대해 FPCA 수행 및 결과 저장하는 함수 ==========================================================================
 perform_fpca_for_all <- function(path_smoothing_results, initial_nharm = 50, portion = 0.9, output_base_dir, export.each.roi = FALSE) {
   smoothing_results <- readRDS(path_smoothing_results)

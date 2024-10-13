@@ -1,8 +1,8 @@
 # 🟥 Trian data ==============================================================================================================================================
-path_train = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/2.Split train and test data/all_train_data_seed_4649.rds"
-# path_train = "C:/Users/clair/OneDrive/바탕 화면/FunCurv/all_train_data_seed_4649.rds"
-train = readRDS(path_train)
-train_RID = sprintf("RID_%04d", train$RID)
+path_train = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/2.Split train and test data/train_seed_4649.rds"
+train_folded = readRDS(path_train)
+path_test = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/2.Split train and test data/test_seed_4649.rds"
+test = readRDS(path_test_dataset)
 
 
 
@@ -77,18 +77,22 @@ options_for_each_atlas_list <- list(
 )
 
 
+
 ## 🟨 FunImgARCWSF ====================================================================================================================
 path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC"
 path_FC = path_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_FC"
 path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(base_path = path_FC, 
+                               train_folded,
+                               test,
                                options_for_each_atlas_list = options_for_each_atlas_list, 
                                common_options = list(path_export = path_export, 
                                                      save_each_ROI = FALSE, 
-                                                     overwrite = FALSE,
-                                                     train_RID = train_RID)
-                               )
+                                                     overwrite = FALSE))
+
+
+
 
 
 ## 🟨 FunImgARglobalCWSF ====================================================================================================================
@@ -97,12 +101,12 @@ path_FC = path_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARglobalCWSF_FC"
 path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(base_path = path_FC, 
+                               train_folded,
+                               test,
                                options_for_each_atlas_list = options_for_each_atlas_list, 
                                common_options = list(path_export = path_export, 
                                                      save_each_ROI = FALSE, 
-                                                     overwrite = FALSE,
-                                                     train_RID = train_RID)
-                               )
+                                                     overwrite = FALSE))
 
 
 
@@ -192,12 +196,12 @@ path_FC = path_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_zReHo"
 path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(base_path = path_FC, 
+                               train_folded,
+                               test,
                                options_for_each_atlas_list = options_for_each_atlas_list, 
                                common_options = list(path_export = path_export, 
                                                      save_each_ROI = FALSE, 
-                                                     overwrite = FALSE,
-                                                     train_RID = train_RID)
-)
+                                                     overwrite = FALSE))
 
 
 ## 🟨 FunImgARglobalCWSF ====================================================================================================================
@@ -206,12 +210,12 @@ path_FC = path_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARglobalCWSF_zReHo"
 path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(base_path = path_FC, 
+                               train_folded,
+                               test,
                                options_for_each_atlas_list = options_for_each_atlas_list, 
                                common_options = list(path_export = path_export, 
                                                      save_each_ROI = FALSE, 
-                                                     overwrite = FALSE,
-                                                     train_RID = train_RID)
-                               )
+                                                     overwrite = FALSE))
 
 
 

@@ -56,59 +56,99 @@ adjust_path <- function(path) {
 
 
 # 🟥 Define smoothing functions =========================================================================================================
+## 🟨 RID 변경 =======================================================================
+change_rid = function(rid){
+  sprintf("RID_%04d", rid)
+}
+
+
 ## 🟨 각 atlas에 서로 다른 옵션 적용하는 함수 =======================================================================
 apply_smoothing_to_atlas_files <- function(base_path, 
+                                           train_folded,
+                                           test,
                                            options_for_each_atlas_list, 
                                            common_options = list()) {
+  
   # 경로에서 파일 목록 가져오기
   file_list <- list.files(base_path, full.names = TRUE)
   
-  # 파일별 옵션을 선택하는 함수
+  # 파일별 옵션 선택 함수 정의
   get_options_for_file <- function(file_name) {
-    # AAL3에 대해 개별 옵션 처리
     if (grepl("AAL3", file_name)) {
       return(options_for_each_atlas_list[["AAL3"]])
     }
-    
-    # Parcels 숫자에 따른 공통 옵션 처리
     parcels_pattern <- stringr::str_extract(file_name, "\\d+Parcels")
     if (!is.na(parcels_pattern) && parcels_pattern %in% names(options_for_each_atlas_list)) {
       return(options_for_each_atlas_list[[parcels_pattern]])
     }
-    
-    # 기본 옵션을 반환 (일치하는 옵션이 없을 경우)
     return(list())
   }
   
-  # 파일 리스트에 대해 반복 처리
+  # 각 atlas 파일에 대해 처리
   for (path_atlas in file_list) {
-    # 파일명 추출
     file_name <- tools::file_path_sans_ext(basename(path_atlas))
-    
-    # 파일에 맞는 옵션 가져오기
     specific_options <- get_options_for_file(file_name)
     
-    # 공통 옵션과 파일별 옵션 병합
+    # 중복된 path_export 제거
     final_options <- modifyList(common_options, specific_options)
+    final_options$path_export <- NULL  # path_export 제거
     
-    # 필요한 매개변수를 리스트로 준비
-    params <- c(list(path_FC_atlas = path_atlas), final_options)
-    
-    # train_RID 누락 방지 확인
-    if (!"train_RID" %in% names(params)) {
-      stop("[ERROR] train_RID가 누락되었습니다. 매개변수를 확인하세요.")
+    # 🟢 Atlas별 폴더 생성
+    atlas_export_path <- file.path(common_options$path_export, file_name)
+    if (!dir.exists(atlas_export_path)) {
+      dir.create(atlas_export_path, recursive = TRUE)
+      cat(crayon::green("Created export directory for atlas:"), crayon::bold(atlas_export_path), "\n")
     }
     
-    # smoothing 함수 호출
-    cat(crayon::cyan("[INFO] Processing file:"), crayon::bold(file_name), "\n")
-    do.call(smoothing_multiple_ROIs, params)
+    # 🟢 Test 데이터 처리
+    test_RID <- change_rid(test$RID)
+    # dim(test)
+    test_path <- file.path(atlas_export_path, "test")
+    dir.create(test_path, showWarnings = FALSE)
+    cat(crayon::cyan("[INFO] Processing Test Data for Atlas:"), crayon::bold(file_name), "\n")
+    test_params <- c(list(path_FC_atlas = path_atlas, 
+                          target_RID = test_RID, 
+                          path_export = test_path), 
+                     final_options)
+    do.call(smoothing_multiple_ROIs, test_params)
+    
+    # 🟢 각 폴드에 대해 Train 및 Validation 데이터 처리
+    for (fold in seq(1, 5)) {
+      
+      train_data <- train_folded[[paste0("Fold_", fold, "_Train")]]
+      validation_data <- train_folded[[paste0("Fold_", fold, "_Validation")]]
+      
+      train_RID <- change_rid(train_data$RID)
+      validation_RID <- change_rid(validation_data$RID)
+      
+      # Train 데이터 처리
+      train_path <- file.path(atlas_export_path, "train", paste0("fold_", fold))
+      dir.create(train_path, recursive = TRUE, showWarnings = FALSE)
+      cat(crayon::cyan("[INFO] Processing Train Data for Fold:"), fold, "-", crayon::bold(file_name), "\n")
+      train_params <- c(list(path_FC_atlas = path_atlas, 
+                             target_RID = train_RID, 
+                             path_export = train_path), 
+                        final_options)
+      do.call(smoothing_multiple_ROIs, train_params)
+      
+      # Validation 데이터 처리
+      validation_path <- file.path(atlas_export_path, "validation", paste0("fold_", fold))
+      dir.create(validation_path, recursive = TRUE, showWarnings = FALSE)
+      cat(crayon::cyan("[INFO] Processing Validation Data for Fold:"), fold, "-", crayon::bold(file_name), "\n")
+      validation_params <- c(list(path_FC_atlas = path_atlas, 
+                                  target_RID = validation_RID, 
+                                  path_export = validation_path), 
+                             final_options)
+      do.call(smoothing_multiple_ROIs, validation_params)
+    }
   }
 }
 
 
+
 ## 🟨 Multiple : smoothing by bspline gcv =======================================================================
 smoothing_multiple_ROIs <- function(path_FC_atlas, 
-                                    train_RID,
+                                    target_RID,  # 수정: train_RID -> target_RID
                                     n_order, 
                                     n_breaks = NULL, 
                                     lambdas, 
@@ -118,99 +158,57 @@ smoothing_multiple_ROIs <- function(path_FC_atlas,
                                     overwrite = TRUE) {
   ### 🟩 경로 설정 =====================================================
   atlas_name <- tools::file_path_sans_ext(basename(path_FC_atlas))
-  atlas_export_path <- file.path(path_export, atlas_name)
+  export_path <- file.path(path_export)
   
-  # Create the export directory if it doesn't exist
-  if (!dir.exists(atlas_export_path)) {
+  # 내보내기 디렉터리 생성
+  if (!dir.exists(export_path)) {
     tryCatch({
-      dir.create(atlas_export_path, recursive = TRUE)
-      cat(crayon::green("Created export directory at:"), crayon::bold(atlas_export_path), "\n")
+      dir.create(export_path, recursive = TRUE)
+      cat(crayon::green("Created export directory at:"), crayon::bold(export_path), "\n")
     }, error = function(e) {
-      stop(crayon::red("Error: Failed to create export directory at:"), crayon::bold(atlas_export_path), "\n")
+      stop(crayon::red("Error: Failed to create export directory at:"), crayon::bold(export_path), "\n")
     })
   }
   
-  ### 🟩 Train 및 Test 결과 파일 경로 설정 =====================================================
-  train_export_path <- file.path(atlas_export_path, "train")
-  test_export_path <- file.path(atlas_export_path, "test")
+  # 결과 파일 경로 설정
+  results_file <- file.path(export_path, paste0("results_smoothed_", atlas_name, ".rds"))
   
-  dir.create(train_export_path, recursive = TRUE, showWarnings = FALSE)
-  dir.create(test_export_path, recursive = TRUE, showWarnings = FALSE)
-  
-  train_results_file <- file.path(train_export_path, "results_train_smoothed.rds")
-  test_results_file <- file.path(test_export_path, "results_test_smoothed.rds")
-  
-  ### 🟩 Train 데이터 처리 =====================================================
-  if (file.exists(train_results_file)) {
-    cat(crayon::blue("[INFO] Skipping train processing for atlas:"),
-        crayon::bgMagenta(atlas_name), "\n")
+  ### 🟩 데이터 처리 =====================================================
+  if (file.exists(results_file)) {
+    cat(crayon::blue("[INFO] Skipping processing for atlas:"), crayon::bgMagenta(atlas_name), "\n")
   } else {
-    # 데이터 나누기 및 처리
+    # Atlas 파일 로드
     FC <- readRDS(path_FC_atlas)
     
-    
-    FC_train <- lapply(FC, function(X) {
-      X %>% select(all_of(c(names(X)[1:2], train_RID))) %>% rename(Dist = Euclid_Dist)
+    # 대상 RID에 해당하는 열 선택
+    FC_filtered <- lapply(FC, function(X) {
+      X %>% select(all_of(c(names(X)[1:2], target_RID)))
     }) %>% setNames(names(FC))
     
-    # train_RID %in% names(FC_train$ROI_001)
-    
-    results_train <- lapply(names(FC_train), function(roi_name) {
-      # roi_name = names(FC_train)[1]
+    # 각 ROI에 대해 smoothing 수행
+    results <- lapply(names(FC_filtered), function(roi_name) {
       process_single_ROI(
-        roi_name, FC_train, atlas_export_path = train_export_path, n_order, lambdas, 
+        roi_name, FC_filtered, export_path, n_order, lambdas, 
         n_breaks, width, overwrite, save_each_ROI
       )
-    }) %>% setNames(names(FC_train))
+    }) %>% setNames(names(FC_filtered))
     
-    results_train <- results_train[!sapply(results_train, is.null)]
-    if (length(results_train) > 0) {
-      saveRDS(results_train, train_results_file)
-      cat(crayon::green("[INFO] Saved train results at:"), crayon::bold(train_results_file), "\n")
+    # 결과 저장
+    results <- results[!sapply(results, is.null)]
+    if (length(results) > 0) {
+      saveRDS(results, results_file)
+      cat(crayon::green("[INFO] Saved results at:"), crayon::bold(results_file), "\n")
     } else {
-      cat(crayon::yellow("[INFO] No new train results to save.\n"))
+      cat(crayon::yellow("[INFO] No new results to save.\n"))
     }
-    results_train = NULL
-  }
-  
-  ### 🟩 Test 데이터 처리 =====================================================
-  if (file.exists(test_results_file)) {
-    cat(crayon::blue("[INFO] Skipping test processing for atlas:"),
-        crayon::bgMagenta(atlas_name), "\n")
-  } else {
-    # 데이터 나누기 및 처리
-    if (!exists("FC")) {
-      FC <- readRDS(path_FC_atlas)
-    }
-    
-    FC_test <- lapply(FC, function(X) {
-      test_columns <- setdiff(names(X), train_RID)
-      X %>% select(all_of(test_columns))
-    }) %>% setNames(names(FC))
-    
-    results_test <- lapply(names(FC_test), function(roi_name) {
-      process_single_ROI(
-        roi_name, FC_test, test_export_path, n_order, lambdas, 
-        n_breaks, width, overwrite, save_each_ROI
-      )
-    }) %>% setNames(names(FC_test))
-    
-    results_test <- results_test[!sapply(results_test, is.null)]
-    if (length(results_test) > 0) {
-      saveRDS(results_test, test_results_file)
-      cat(crayon::green("[INFO] Saved test results at:"), crayon::bold(test_results_file), "\n")
-    } else {
-      cat(crayon::yellow("[INFO] No new test results to save.\n"))
-    }
-    results_test = NULL
   }
 }
-
 
 
 ## 🟨 Single ROI =======================================================================
 process_single_ROI <- function(roi_name, FC, atlas_export_path, n_order, lambdas, 
                                n_breaks, width, overwrite, save_each_ROI) {
+  require(crayon)
   cat(crayon::cyan("[INFO] Processing ROI:"), bold(roi_name), "\n")
   # kth_ROI = FC_train[[roi_name]]
   kth_ROI <- FC[[roi_name]]
