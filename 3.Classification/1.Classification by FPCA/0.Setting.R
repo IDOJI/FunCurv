@@ -43,7 +43,7 @@ library(fda)
 library(crayon)
 library(tictoc)
 ## 🟨 여러 아틀라스에 FPCA 실행 ==========================================================================
-perform_fpca_for_multiple_atlases <- function(train_fold, input_paths, output_path, initial_nharm = 50, portion = 0.9, export_each_roi = FALSE) {
+perform_fpca_for_multiple_atlases <- function(input_paths, output_path, initial_nharm = 50, portion = 0.9, export_each_roi = FALSE) {
   # 여러 경로에서 모든 아틀라스 파일 목록 수집
   all_atlas_paths <- unlist(lapply(input_paths, function(input_path) {
     list.files(input_path, full.names = TRUE)
@@ -51,7 +51,23 @@ perform_fpca_for_multiple_atlases <- function(train_fold, input_paths, output_pa
   
   # 아틀라스별로 FPCA 수행
   results_list <- lapply(all_atlas_paths, function(atlas_path) {
-    smoothing_result_paths <- list.files(file.path(atlas_path, "train"), pattern = "\\.rds$", full.names = TRUE)
+    
+    train_smoothing_result_path = list.files(file.path(atlas_path, "train"), full.names = TRUE)
+    valid_smoothing_result_path = list.files(file.path(atlas_path, "validation"), full.names = TRUE)
+    test_smoothing_result_path = list.files(file.path(atlas_path, "test"), pattern = "\\.rds$", full.names = TRUE)
+    
+    test_smoothing_result = readRDS(test_smoothing_result_path)
+    # test_smoothing_result$ROI_001$fdSmooth_obj$fd
+    
+    for(k in seq_along(train_smoothing_result_path)){
+      # k=1
+      kth_fold_train = list.files(train_smoothing_result_path[k], pattern = "\\.rds$", full.names = T) %>% readRDS
+      kth_fold_valid = list.files(valid_smoothing_result_path[k], pattern = "\\.rds$", full.names = T) %>% readRDS
+      
+      
+      
+    }
+    
     
     perform_fpca_for_all(
       path_smoothing_results = smoothing_result_paths,
