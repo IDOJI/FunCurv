@@ -167,7 +167,7 @@ results = smoothing_multiple_ROIs(path_FC_atlas,
 options_for_each_atlas_list <- list(
   AAL3 = list(n_order = 4, 
               n_breaks = 300, 
-              lambdas = exp(seq(-1, 0, 0.5))),
+              lambdas = exp(seq(-3, -2, 0.5))),
   "1000Parcels" = list(n_order = 4,
                        n_breaks = NULL, 
                        lambdas = exp(seq(-4, -3, 0.5))),
