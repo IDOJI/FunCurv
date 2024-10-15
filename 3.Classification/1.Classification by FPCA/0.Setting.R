@@ -184,6 +184,8 @@ perform_fpca_for_fold <- function(train_smoothing_results,
                                   fold_name, 
                                   export_each_roi = FALSE) {
   
+  dir.create(output_base_dir,showWarnings = F, recursive = T)
+  
   # 결과를 저장할 리스트 초기화
   roi_results <- list()
   
