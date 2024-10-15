@@ -82,7 +82,7 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
                                               initial_nharm = 50, 
                                               portion = 0.9, 
                                               export_each_roi = FALSE) {
-  dir.create(output_path, showWarnings = F, recursive = T)
+  dir.create(output_path, showWarnings = FALSE, recursive = TRUE)
   
   # 여러 경로에서 모든 아틀라스 파일 목록 수집
   all_atlas_paths <- unlist(lapply(input_paths, function(input_path) {
@@ -93,6 +93,18 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
   results_list <- lapply(all_atlas_paths, function(atlas_path) {
     atlas_name <- basename(atlas_path)
     print_message(sprintf("Processing Atlas: %s", atlas_name), crayon::blue)
+    
+    atlas_dir <- file.path(output_path, atlas_name)
+    dir.create(atlas_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    # 최종 결과 파일 경로
+    final_output_file <- file.path(atlas_dir, paste0("FPCA_results_", atlas_name, ".rds"))
+    
+    # 최종 결과가 이미 존재하면 계산 생략
+    if (file.exists(final_output_file)) {
+      print_message(sprintf("Final results for atlas %s already exist. Loading results...", atlas_name), crayon::yellow)
+      return(readRDS(final_output_file))
+    }
     
     # 각 폴드의 train 및 validation 스무딩 결과 경로 가져오기
     train_folds_paths <- list.dirs(file.path(atlas_path, "train"), recursive = FALSE)
@@ -108,22 +120,6 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
       return(NULL)
     }
     
-    # 각 폴더에 ".rds" 파일이 있는지 확인
-    valid_folds <- sapply(seq_along(required_folds), function(k) {
-      train_fold_path <- train_folds_paths[k]
-      validation_fold_path <- validation_folds_paths[k]
-      
-      train_file_exists <- length(list.files(train_fold_path, pattern = "\\.rds$", full.names = TRUE)) > 0
-      validation_file_exists <- length(list.files(validation_fold_path, pattern = "\\.rds$", full.names = TRUE)) > 0
-      
-      train_file_exists && validation_file_exists
-    })
-    
-    if (!all(valid_folds)) {
-      print_message(sprintf("Skipping Atlas %s: Missing .rds files in folds", atlas_name), crayon::red)
-      return(NULL)
-    }
-    
     # 테스트 데이터의 스무딩 결과 읽기
     test_smoothing_result_path <- list.files(file.path(atlas_path, "test"), pattern = "\\.rds$", full.names = TRUE)
     test_smoothing_result <- readRDS(test_smoothing_result_path)
@@ -134,6 +130,15 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
     # 각 폴드에 대해 FPCA 수행
     for (k in seq_along(train_folds_paths)) {
       fold_name <- paste0("fold_", k)
+      fold_result_file <- file.path(atlas_dir, paste0(fold_name, "_result.rds"))
+      
+      # 이미 해당 폴드 결과가 존재하면 불러오기
+      if (file.exists(fold_result_file)) {
+        print_message(sprintf("Loading existing results for %s", fold_name), crayon::blue)
+        fold_results[[fold_name]] <- readRDS(fold_result_file)
+        next
+      }
+      
       print_message(sprintf("Processing %s", fold_name), crayon::cyan)
       
       train_fold_path <- train_folds_paths[k]
@@ -151,21 +156,31 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
         validation_smoothing_results = validation_smoothing_result,
         initial_nharm = initial_nharm,
         portion = portion,
-        output_base_dir = file.path(output_path, atlas_name),
+        output_base_dir = atlas_dir,
         fold_name = fold_name,
         export_each_roi = export_each_roi
       )
       
+      # 결과를 임시로 저장
+      saveRDS(fold_result, fold_result_file)
       fold_results[[fold_name]] <- fold_result
     }
     
-    # 테스트 데이터의 스무딩 결과 포함
+    # 테스트 데이터 스무딩 결과 포함
     fold_results$test_smoothing_result <- test_smoothing_result
     
     # 최종 결과를 RDS 파일로 저장
-    output_file <- file.path(output_path, paste0("FPCA_results_", atlas_name, ".rds"))
-    saveRDS(fold_results, output_file)
-    print_message(sprintf("Saved FPCA results for atlas %s to %s", atlas_name, output_file), crayon::green)
+    saveRDS(fold_results, final_output_file)
+    print_message(sprintf("Saved FPCA results for atlas %s to %s", atlas_name, final_output_file), crayon::green)
+    
+    # 임시 파일 정리
+    print_message("Cleaning up temporary files...", crayon::magenta)
+    for (k in seq_along(train_folds_paths)) {
+      fold_result_file <- file.path(atlas_dir, paste0("fold_", k, "_result.rds"))
+      if (file.exists(fold_result_file)) {
+        file.remove(fold_result_file)
+      }
+    }
     
     return(fold_results)
   })
