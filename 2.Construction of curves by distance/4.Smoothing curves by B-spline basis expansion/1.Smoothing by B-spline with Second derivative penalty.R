@@ -1,9 +1,9 @@
 # 🟥 Trian data ==============================================================================================================================================
 path_train = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/2.Split train and test data/train_seed_4649.rds"
-path_train = "E:/FunCurv/1.Data Indexing/2.Split train and test data/train_seed_4649.rds"
+# path_train = "E:/FunCurv/1.Data Indexing/2.Split train and test data/train_seed_4649.rds"
 train_folded = readRDS(path_train)
 path_test = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/2.Split train and test data/test_seed_4649.rds"
-path_test = "E:/FunCurv/1.Data Indexing/2.Split train and test data/test_seed_4649.rds"
+# path_test = "E:/FunCurv/1.Data Indexing/2.Split train and test data/test_seed_4649.rds"
 test = readRDS(path_test)
 
 
@@ -44,7 +44,7 @@ test = readRDS(path_test)
 
 
 
-## 🟨 각 atlas에 대한 옵션 정의 ==============================================================================
+## 🟨✅ 각 atlas에 대한 옵션 정의 ==============================================================================
 options_for_each_atlas_list <- list(
   AAL3 = list(n_order = 4, 
               n_breaks = 300, 
@@ -82,25 +82,30 @@ options_for_each_atlas_list <- list(
 )
 
 
+## 🟨✅ 공통 옵션 정의 ==============================================================================
+common_options <- list(path_export = "/path/to/export", 
+                       save_each_ROI = TRUE,
+                       overwrite = FALSE, 
+                       max_plots = 2  # 최대 2개의 ROI에 대해 플롯 생성
+                       )
+
+
 
 ## 🟨 FunImgARCWSF ====================================================================================================================
 path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC"
 path_FC = path_FC %>% adjust_path
-path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_FC"
-# path_export = "/Users/Ido/Downloads/test"
-path_export = path_export %>% adjust_path
+# path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_FC"
+path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunImgARCWSF_FC"
+common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(
   base_path = path_FC, 
   train_folded = train_folded,
   test = test,
   options_for_each_atlas_list = options_for_each_atlas_list, 
-  common_options = list(
-    path_export = path_export, 
-    save_each_ROI = FALSE, 
-    overwrite = FALSE, 
-    max_plots = 2  # 최대 2개의 ROI에 대해 플롯 생성
-  )
+  common_options = common_options
 )
+
+
 
 
 
@@ -108,21 +113,17 @@ apply_smoothing_to_atlas_files(
 ## 🟨 FunImgARglobalCWSF ====================================================================================================================
 path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/Fisher Z FC"
 path_FC = path_FC %>% adjust_path
-path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARglobalCWSF_FC"
+path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARglobalCWSF_FC"
 # path_export = "/Users/Ido/Downloads/test"
-path_export = path_export %>% adjust_path
+common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(
   base_path = path_FC, 
   train_folded = train_folded,
   test = test,
   options_for_each_atlas_list = options_for_each_atlas_list, 
-  common_options = list(
-    path_export = path_export, 
-    save_each_ROI = FALSE, 
-    overwrite = FALSE, 
-    max_plots = 2  # 최대 2개의 ROI에 대해 플롯 생성
-  )
+  common_options = common_options
 )
+
 
 
 
@@ -210,18 +211,15 @@ options_for_each_atlas_list <- list(
 path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo"
 path_FC = path_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_zReHo"
-path_export = path_export %>% adjust_path
+path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARCWSF_zReHo"
+# path_export = "/Users/Ido/Downloads/test"
+common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(
   base_path = path_FC, 
   train_folded = train_folded,
   test = test,
   options_for_each_atlas_list = options_for_each_atlas_list, 
-  common_options = list(
-    path_export = path_export, 
-    save_each_ROI = FALSE, 
-    overwrite = FALSE, 
-    max_plots = 2  # 최대 2개의 ROI에 대해 플롯 생성
-  )
+  common_options = common_options
 )
 
 
@@ -230,18 +228,15 @@ apply_smoothing_to_atlas_files(
 path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/zReHo"
 path_FC = path_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARglobalCWSF_zReHo"
-path_export = path_export %>% adjust_path
+path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARglobalCWSF_zReHo"
+# path_export = "/Users/Ido/Downloads/test"
+common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(
   base_path = path_FC, 
   train_folded = train_folded,
   test = test,
   options_for_each_atlas_list = options_for_each_atlas_list, 
-  common_options = list(
-    path_export = path_export, 
-    save_each_ROI = FALSE, 
-    overwrite = FALSE, 
-    max_plots = 2  # 최대 2개의 ROI에 대해 플롯 생성
-  )
+  common_options = common_options
 )
 
 
