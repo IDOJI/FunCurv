@@ -1,9 +1,9 @@
 # 🟥 Trian data ==============================================================================================================================================
 path_train = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/2.Split train and test data/train_seed_4649.rds"
-# path_train = "E:/FunCurv/1.Data Indexing/2.Split train and test data/train_seed_4649.rds"
+path_train = "E:/FunCurv/1.Data Indexing/2.Split train and test data/train_seed_4649.rds"
 train_folded = readRDS(path_train)
 path_test = "/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/2.Split train and test data/test_seed_4649.rds"
-# path_test = "E:/FunCurv/1.Data Indexing/2.Split train and test data/test_seed_4649.rds"
+path_test = "E:/FunCurv/1.Data Indexing/2.Split train and test data/test_seed_4649.rds"
 test = readRDS(path_test)
 
 
