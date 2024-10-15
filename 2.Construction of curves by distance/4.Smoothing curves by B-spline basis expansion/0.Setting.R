@@ -312,6 +312,8 @@ smoothing_by_bspline_gcv <- function(kth_ROI,
                                      width = 2000,
                                      overwrite = TRUE,
                                      generate_plots = TRUE) {  # 추가된 옵션
+  dir.create(path_export, showWarnings = F, recursive = T)
+  
   library(magrittr)
   library(fda)
   library(crayon)
