@@ -82,6 +82,8 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
                                               initial_nharm = 50, 
                                               portion = 0.9, 
                                               export_each_roi = FALSE) {
+  dir.create(output_path, showWarnings = F, recursive = T)
+  
   # 여러 경로에서 모든 아틀라스 파일 목록 수집
   all_atlas_paths <- unlist(lapply(input_paths, function(input_path) {
     list.files(input_path, full.names = TRUE)
