@@ -48,7 +48,7 @@ test = readRDS(path_test)
 options_for_each_atlas_list <- list(
   AAL3 = list(n_order = 4, 
               n_breaks = 300, 
-              lambdas = exp(seq(-5, -4, 0.5))),
+              lambdas = exp(seq(-6, -5, 0.5))),
   "1000Parcels" = list(n_order = 4,
                        n_breaks = NULL, 
                        lambdas = exp(seq(-3, -2, 0.5))),
@@ -86,7 +86,7 @@ options_for_each_atlas_list <- list(
 common_options <- list(path_export = "/path/to/export", 
                        save_each_ROI = TRUE,
                        overwrite = FALSE, 
-                       max_plots = 2  # 최대 2개의 ROI에 대해 플롯 생성
+                       max_plots = 5  # 최대 2개의 ROI에 대해 플롯 생성
                        )
 
 
@@ -95,7 +95,7 @@ common_options <- list(path_export = "/path/to/export",
 path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC"
 path_FC = path_FC %>% adjust_path
 # path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_FC"
-path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunImgARCWSF_FC"
+path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARCWSF_FC"
 common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(
   base_path = path_FC, 
