@@ -237,7 +237,7 @@ smoothing_multiple_ROIs <- function(path_ith_FC,
                                     lambdas, 
                                     path_export, 
                                     width = 2000,
-                                    overwrite = TRUE,
+                                    overwrite = FALSE,
                                     max_plots) {
   
   ### 🟩 경로 설정 ===================================================================================
@@ -265,7 +265,7 @@ smoothing_multiple_ROIs <- function(path_ith_FC,
   # 파일 존재 & 파일 용량 > 0 & overwrite = T가 아닌 경우
   if (length(combined_results_file) > 0 && file.info(combined_results_file[1])$size > 0 && !overwrite) {
     cat(crayon::blue("[INFO] Combined smoothed results already exist.\n"))
-    invisible(NULL)
+    invisible(return(NULL))
   } else if (length(combined_results_file) > 0 && overwrite) {
     lapply(combined_results_file, file.remove)  # 여러 파일을 삭제할 수 있도록 수정
     cat(crayon::yellow("[INFO] Overwrite is TRUE. Deleted existing combined smoothed results.\n"))
