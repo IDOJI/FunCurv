@@ -14,24 +14,24 @@ test = readRDS(path_test)
 ## 🟨 옵션 테스트 ==============================================================================
 # path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_FC"
 # # 900
-# path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_900Parcels_Kong2022_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+# path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_900Parcels_Kong2022_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # # 800
-# path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_800Parcels_7Networks_order_FSLMNI152__resampled.nii.gz.rds"
+# path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_800Parcels_7Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # # 700
-# path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_700Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+# path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_700Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # # 600
-# path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_600Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+# path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_600Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # # 500
-# path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_500Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+# path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_500Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # # 400
-# path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_400Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+# path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_400Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # # 300
-# path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_300Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+# path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_300Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # # 200
-# path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_200Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+# path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_200Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # # 100
-# path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_100Parcels_Kong2022_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
-# results = smoothing_multiple_ROIs(path_FC_atlas, 
+# path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC/Schaefer2018_100Parcels_Kong2022_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+# results = smoothing_multiple_ROIs(path_all_FC_atlas, 
 #                                   train_RID,
 #                                   n_order = 4,
 #                                   n_breaks = NULL,
@@ -84,7 +84,6 @@ options_for_each_atlas_list <- list(
 
 ## 🟨✅ 공통 옵션 정의 ==============================================================================
 common_options <- list(path_export = "/path/to/export", 
-                       save_each_ROI = TRUE,
                        overwrite = FALSE, 
                        max_plots = 5  # 최대 2개의 ROI에 대해 플롯 생성
                        )
@@ -92,13 +91,13 @@ common_options <- list(path_export = "/path/to/export",
 
 
 ## 🟨 FunImgARCWSF ====================================================================================================================
-path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC"
-path_FC = path_FC %>% adjust_path
+path_all_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/Fisher Z FC"
+path_all_FC = path_all_FC %>% adjust_path
 # path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_FC"
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARCWSF_FC"
 common_options$path_export = path_export %>% adjust_path
-apply_smoothing_to_atlas_files(
-  base_path = path_FC, 
+apply_smoothing_to_all_atlas_files(
+  path_all_FC = path_all_FC, 
   train_folded = train_folded,
   test = test,
   options_for_each_atlas_list = options_for_each_atlas_list, 
@@ -111,13 +110,13 @@ apply_smoothing_to_atlas_files(
 
 
 ## 🟨 FunImgARglobalCWSF ====================================================================================================================
-path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/Fisher Z FC"
-path_FC = path_FC %>% adjust_path
+path_all_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/Fisher Z FC"
+path_all_FC = path_all_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARglobalCWSF_FC"
 # path_export = "/Users/Ido/Downloads/test"
 common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(
-  base_path = path_FC, 
+  path_all_FC = path_all_FC, 
   train_folded = train_folded,
   test = test,
   options_for_each_atlas_list = options_for_each_atlas_list, 
@@ -132,28 +131,28 @@ apply_smoothing_to_atlas_files(
 ## 🟨 옵션 테스트 ==============================================================================
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_ReHo"
 # 1000
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_1000Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_1000Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # 900
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_900Parcels_7Networks_order_FSLMNI152__resampled.nii.gz.rds"
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_900Parcels_7Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # 800
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_800Parcels_7Networks_order_FSLMNI152__resampled.nii.gz.rds"
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_800Parcels_7Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # 700
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_700Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_700Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # 600
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_600Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_600Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # 500
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_500Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_500Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # 400
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_400Parcels_Kong2022_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_400Parcels_Kong2022_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # 300
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_300Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_300Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # 200
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_200Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_200Parcels_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # 100
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_100Parcels_Kong2022_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/Schaefer2018_100Parcels_Kong2022_17Networks_order_FSLMNI152__resampled.nii.gz.rds"
 # AAL3
-path_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/AAL3.rds"
-results = smoothing_multiple_ROIs(path_FC_atlas, 
+path_all_FC_atlas = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo/AAL3.rds"
+results = smoothing_multiple_ROIs(path_all_FC_atlas, 
                                   train_RID,
                                   n_order = 4,
                                   n_breaks = NULL,
@@ -208,14 +207,14 @@ options_for_each_atlas_list <- list(
 
 
 ## 🟨 FunImgARCWSF ====================================================================================================================
-path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo"
-path_FC = path_FC %>% adjust_path
+path_all_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zReHo"
+path_all_FC = path_all_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_zReHo"
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARCWSF_zReHo"
 # path_export = "/Users/Ido/Downloads/test"
 common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(
-  base_path = path_FC, 
+  path_all_FC = path_all_FC, 
   train_folded = train_folded,
   test = test,
   options_for_each_atlas_list = options_for_each_atlas_list, 
@@ -225,14 +224,14 @@ apply_smoothing_to_atlas_files(
 
 
 ## 🟨 FunImgARglobalCWSF ====================================================================================================================
-path_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/zReHo"
-path_FC = path_FC %>% adjust_path
+path_all_FC = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/zReHo"
+path_all_FC = path_all_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARglobalCWSF_zReHo"
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARglobalCWSF_zReHo"
 # path_export = "/Users/Ido/Downloads/test"
 common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_atlas_files(
-  base_path = path_FC, 
+  path_all_FC = path_all_FC,
   train_folded = train_folded,
   test = test,
   options_for_each_atlas_list = options_for_each_atlas_list, 
