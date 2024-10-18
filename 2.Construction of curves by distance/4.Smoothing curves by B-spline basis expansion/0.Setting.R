@@ -251,6 +251,10 @@ smoothing_multiple_ROIs <- function(path_ith_FC,
     })
   }
   
+  
+  
+  
+  
   ### 🟩 이미 저장된 전체 결과가 있는지 확인 ====================================================================
   # export_path에 "combine"과 "results" 둘 다 포함하는 .rds 파일이 존재하는지 확인
   rds_files <- list.files(path_export, pattern = "\\.rds$", full.names = TRUE)
@@ -266,6 +270,9 @@ smoothing_multiple_ROIs <- function(path_ith_FC,
     lapply(combined_results_file, file.remove)  # 여러 파일을 삭제할 수 있도록 수정
     cat(crayon::yellow("[INFO] Overwrite is TRUE. Deleted existing combined smoothed results.\n"))
   }     
+  
+  
+  
   
   ### 🟩 데이터 처리 ==========================================================================================
   FC <- readRDS(path_ith_FC)
@@ -356,6 +363,19 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
                     final_options)
     do.call(smoothing_multiple_ROIs, test_params)
     
+    
+    
+    # 🟢 전체 Train 데이터 smoothing  ====================================================================
+    train = rbind(train_folded$Fold_1_Train, train_folded$Fold_1_Validation)
+    train_RID = change_rid(train$RID)
+    train_path <- file.path(atlas_export_path, "total_train")
+    dir.create(train_path, showWarnings = FALSE)
+    cat(crayon::cyan("[INFO] Processing Total Train Data for Atlas:"), crayon::bold(atlas_name), "\n")
+    train_params = c(list(path_ith_FC = path_ith_FC,
+                          target_RID = train_RID, 
+                          path_export = train_path), 
+                     final_options)
+    do.call(smoothing_multiple_ROIs, train_params)
     
     
     # 🟢 각 폴드에 대해 Train 및 Validation 데이터 처리  ====================================================================
