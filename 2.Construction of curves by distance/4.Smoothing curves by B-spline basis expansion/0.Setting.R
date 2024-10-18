@@ -160,6 +160,7 @@ apply_smoothing_to_atlas_files <- function(base_path,
 }
 
 ## 🟨 Multiple : smoothing by bspline gcv =======================================================================
+## 🟨 Multiple : smoothing by bspline gcv =======================================================================
 smoothing_multiple_ROIs <- function(path_FC_atlas, 
                                     target_RID,  
                                     n_order, 
@@ -170,15 +171,6 @@ smoothing_multiple_ROIs <- function(path_FC_atlas,
                                     width = 2000,
                                     overwrite = TRUE,
                                     max_plots) {
-  
-  # path_FC_atlas <- test_params$path_FC_atlas
-  # target_RID <- test_params$target_RID
-  # path_export <- test_params$path_export
-  # save_each_ROI <- test_params$save_each_ROI
-  # overwrite <- test_params$overwrite
-  # max_plots <- test_params$max_plots
-  # n_order <- test_params$n_order
-  # lambdas <- test_params$lambdas
   
   ### 🟩 경로 설정 ===================================================================================
   atlas_name <- tools::file_path_sans_ext(basename(path_FC_atlas))
@@ -193,17 +185,57 @@ smoothing_multiple_ROIs <- function(path_FC_atlas,
     })
   }
   
-  
-  
-  
   ### 🟩 이미 저장된 전체 결과가 있는지 확인 ====================================================================
-  results_file <- file.path(export_path, paste0("results_smoothed_", atlas_name, ".rds"))
-  if (file.exists(results_file) && file.info(results_file)$size > 0 && !overwrite) {
-    cat(crayon::blue("[INFO] Using existing combined results for atlas:"), crayon::bgMagenta(atlas_name), "\n")
+  combined_results_file <- file.path(export_path, "combined_smoothed_results.rds")
+  if (file.exists(combined_results_file) && file.info(combined_results_file)$size > 0 && !overwrite) {
+    cat(crayon::blue("[INFO] Combined smoothed results already exist.\n"))
+    
+    # 기존 결합된 결과 로드
+    combined_results <- readRDS(combined_results_file)
+    
+    # 각 ROI에 대해 플롯이 없는 경우 플롯 생성
+    roi_index <- 0
+    for (roi_name in names(combined_results)) {
+      roi_index <- roi_index + 1
+      generate_plots_roi <- roi_index <= max_plots  # 첫 max_plots 개의 ROI에 대해서만 플롯 생성
+      
+      if (generate_plots && generate_plots_roi) {
+        # 플롯 경로 설정
+        file_name <- paste0(roi_name, "_smoothed_result")
+        file_name_after <- paste0(
+          file_name, "_n_order=", n_order,
+          "_lambda=", paste0("exp(", round(log(combined_results[[roi_name]]$lambda), 2), ")"),
+          "_n_breaks=", n_breaks, "_after"
+        )
+        file_path_before <- file.path(export_path, paste0(file_name, "_before.png"))
+        file_path_after <- file.path(export_path, paste0(file_name_after, ".png"))
+        
+        # 플롯이 없는 경우 플롯 생성
+        if ((!file.exists(file_path_before) || !file.exists(file_path_after)) || overwrite) {
+          # 해당 ROI의 데이터를 로드하여 플롯 생성
+          FC <- readRDS(path_FC_atlas)
+          kth_ROI <- FC[[roi_name]]
+          domain <- kth_ROI %>% select(ends_with("Dist")) %>% unlist %>% as.numeric
+          names(domain) = kth_ROI$ROI
+          kth_ROI = kth_ROI %>% select(-ROI, -ends_with("Dist"))
+          
+          # 플롯 생성 함수 호출
+          generate_plots_from_existing_results(
+            roi_name, kth_ROI, domain, combined_results[[roi_name]], 
+            export_path, n_order, n_breaks, width, overwrite
+          )
+        }
+      }
+    }
+    
     return(NULL)
   }
   
-  
+  # overwrite가 TRUE인 경우 기존 결합된 결과 파일 삭제
+  if (file.exists(combined_results_file) && overwrite) {
+    file.remove(combined_results_file)
+    cat(crayon::yellow("[INFO] Overwrite is TRUE. Deleted existing combined smoothed results.\n"))
+  }
   
   ### 🟩 데이터 처리 ==========================================================================================
   FC <- readRDS(path_FC_atlas)
@@ -216,26 +248,53 @@ smoothing_multiple_ROIs <- function(path_FC_atlas,
   
   for (roi_name in names(FC_filtered)) {
     roi_index <- roi_index + 1
-    generate_plots <- roi_index <= max_plots  # 첫 max_plots 개의 ROI에 대해서만 플롯 생성
+    generate_plots_roi <- roi_index <= max_plots  # 첫 max_plots 개의 ROI에 대해서만 플롯 생성
     
     # ROI별 RDS 파일 확인 및 처리
     rds_file_path <- file.path(export_path, paste0(roi_name, "_smoothed.rds"))
-    if (file.exists(rds_file_path) && file.info(rds_file_path)$size > 0) {
-      
+    if (file.exists(rds_file_path) && file.info(rds_file_path)$size > 0 && !overwrite) {
       tryCatch({
         result <- readRDS(rds_file_path)
         cat(crayon::yellow("[INFO] Using existing result for ROI:"), crayon::bold(roi_name), "\n")
         results[[roi_name]] <- result
+        
+        # 플롯 생성 여부 확인 및 생성
+        if (generate_plots && generate_plots_roi) {
+          # 플롯 경로 설정
+          file_name <- paste0(roi_name, "_smoothed_result")
+          file_name_after <- paste0(
+            file_name, "_n_order=", n_order,
+            "_lambda=", paste0("exp(", round(log(result$lambda), 2), ")"),
+            "_n_breaks=", n_breaks, "_after"
+          )
+          file_path_before <- file.path(export_path, paste0(file_name, "_before.png"))
+          file_path_after <- file.path(export_path, paste0(file_name_after, ".png"))
+          
+          # 플롯이 없는 경우 플롯 생성
+          if ((!file.exists(file_path_before) || !file.exists(file_path_after)) || overwrite) {
+            # 해당 ROI의 데이터를 로드하여 플롯 생성
+            kth_ROI <- FC_filtered[[roi_name]]
+            domain <- kth_ROI %>% select(ends_with("Dist")) %>% unlist %>% as.numeric
+            names(domain) = kth_ROI$ROI
+            kth_ROI = kth_ROI %>% select(-ROI, -ends_with("Dist"))
+            
+            # 플롯 생성 함수 호출
+            generate_plots_from_existing_results(
+              roi_name, kth_ROI, domain, result, 
+              export_path, n_order, n_breaks, width, overwrite
+            )
+          }
+        }
+        
         next  # 이미 처리된 ROI는 건너뜀
       }, error = function(e) {
         cat(crayon::red("[ERROR] Failed to load existing result for ROI:"), crayon::bold(roi_name), "\n")
       })
-      
     }
     
     result <- process_single_ROI(
       roi_name, FC_filtered, export_path, n_order, lambdas, 
-      n_breaks, width, overwrite, save_each_ROI, generate_plots
+      n_breaks, width, overwrite, save_each_ROI, generate_plots && generate_plots_roi
     )
     
     if (!is.null(result)) {
@@ -245,6 +304,7 @@ smoothing_multiple_ROIs <- function(path_FC_atlas,
   
   results <- results[!sapply(results, is.null)]
   if (length(results) > 0) {
+    results_file <- file.path(export_path, paste0("results_smoothed_", atlas_name, ".rds"))
     saveRDS(results, results_file)
     cat(crayon::green("[INFO] Saved results at:"), crayon::bold(results_file), "\n")
   } else {
@@ -252,103 +312,52 @@ smoothing_multiple_ROIs <- function(path_FC_atlas,
   }
 }
 
-
-
-
-## 🟨 Single ROI =======================================================================
-process_single_ROI <- function(roi_name, FC, atlas_export_path, n_order, lambdas, 
-                               n_breaks, width, overwrite, save_each_ROI, generate_plots) {
-  require(crayon)
-  cat(crayon::cyan("[INFO] Processing ROI:"), crayon::bold(roi_name), "\n")
-  
-  kth_ROI <- FC[[roi_name]]
-  domain <- kth_ROI %>% select(ends_with("Dist")) %>% unlist %>% as.numeric
-  names(domain) = kth_ROI$ROI
-  kth_ROI = kth_ROI %>% select(-ROI, -ends_with("Dist"))
+## 🟨 플롯 생성 함수 추가 ===================================================================================
+generate_plots_from_existing_results <- function(roi_name, kth_ROI, domain, smoothing_result, 
+                                                 export_path, n_order, n_breaks, width, overwrite) {
+  # 플롯을 생성하기 위한 함수 정의
+  add_rotated_x_labels <- function(domain) {
+    labels <- if (!is.null(names(domain))) names(domain) else as.character(domain)
+    axis(1, at = domain, labels = FALSE)
+    text(x = domain, y = par("usr")[3] - 0.05 * diff(par("usr")[3:4]), 
+         labels = labels, srt = 45, adj = 1, xpd = TRUE)
+  }
   
   file_name <- paste0(roi_name, "_smoothed_result")
-  
-  if (save_each_ROI) {
-    rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
-    if (file.exists(rds_file_path) && !overwrite) {
-      cat(crayon::yellow("[INFO] RDS file already exists for ROI:"), crayon::bold(roi_name), "\n")
-      smoothing_result <- readRDS(rds_file_path)
-      
-      if (generate_plots) {
-        # 플롯을 생성하기 위한 함수 정의
-        add_rotated_x_labels <- function(domain) {
-          labels <- if (!is.null(names(domain))) names(domain) else as.character(domain)
-          axis(1, at = domain, labels = FALSE)
-          text(x = domain, y = par("usr")[3] - 0.05 * diff(par("usr")[3:4]), 
-               labels = labels, srt = 45, adj = 1, xpd = TRUE)
-        }
-        
-        # 파일 이름 생성
-        file_name_after <- paste0(
-          file_name, "_n_order=", n_order,
-          "_lambda=", paste0("exp(", round(log(smoothing_result$lambda), 2), ")"),
-          "_n_breaks=", n_breaks, "_after"
-        )
-        
-        # 플롯 경로 설정
-        file_path_before <- file.path(atlas_export_path, paste0(file_name, "_before.png"))
-        file_path_after <- file.path(atlas_export_path, paste0(file_name_after, ".png"))
-        
-        # 스무딩 전 플롯 생성
-        if (!file.exists(file_path_before) || overwrite) {
-          png(filename = file_path_before, width = width, height = 600)
-          matplot(x = domain, y = as.matrix(kth_ROI), type = "l", col = 1:ncol(kth_ROI), lty = 1, 
-                  main = "Original Data Before Smoothing", xaxt = "n")
-          add_rotated_x_labels(domain)
-          dev.off()
-          cat(crayon::green("Saved plot before smoothing at:"), crayon::bold(file_path_before), "\n")
-        } else {
-          cat(crayon::yellow("Skipping initial plot: File already exists at"), crayon::bold(file_path_before), "\n")
-        }
-        
-        # 스무딩 후 플롯 생성
-        if (!file.exists(file_path_after) || overwrite) {
-          png(filename = file_path_after, width = width, height = 600)
-          plot(smoothing_result$fdSmooth_obj$fd, col = 1:ncol(kth_ROI), lty = 1, 
-               main = paste("Optimal Smoothing with lambda =", smoothing_result$lambda), xaxt = "n")
-          add_rotated_x_labels(domain)
-          dev.off()
-          cat(crayon::green("Saved plot after smoothing at:"), crayon::bold(file_path_after), "\n")
-        } else {
-          cat(crayon::yellow("Skipping plot after smoothing: File already exists at"), crayon::bold(file_path_after), "\n")
-        }
-      }
-      
-      return(smoothing_result)
-    }
-  }
-  
-  # 스무딩 수행
-  smoothing_result <- smoothing_by_bspline_gcv(
-    kth_ROI, domain, n_order, lambdas, 
-    n_breaks, path_export = atlas_export_path, 
-    file_name = file_name, 
-    width = width, overwrite = overwrite, 
-    generate_plots = generate_plots  # 추가된 매개변수 전달
+  file_name_after <- paste0(
+    file_name, "_n_order=", n_order,
+    "_lambda=", paste0("exp(", round(log(smoothing_result$lambda), 2), ")"),
+    "_n_breaks=", n_breaks, "_after"
   )
   
-  if (save_each_ROI) {
-    rds_file_path <- file.path(atlas_export_path, paste0(roi_name, "_smoothed.rds"))
-    if (!file.exists(rds_file_path) || overwrite) {
-      tryCatch({
-        saveRDS(smoothing_result, rds_file_path)
-        cat(crayon::green("[INFO] Saved result for ROI:"), crayon::bold(roi_name), "\n")
-      }, error = function(e) {
-        cat(crayon::red("[ERROR] Failed to save result for ROI:"), crayon::bold(roi_name), "\n")
-      })
-    } else {
-      cat(crayon::yellow("[INFO] RDS file already exists and overwrite is FALSE for ROI:"), crayon::bold(roi_name), "\n")
-    }
+  # 플롯 경로 설정
+  file_path_before <- file.path(export_path, paste0(file_name, "_before.png"))
+  file_path_after <- file.path(export_path, paste0(file_name_after, ".png"))
+  
+  # 스무딩 전 플롯 생성
+  if (!file.exists(file_path_before) || overwrite) {
+    png(filename = file_path_before, width = width, height = 600)
+    matplot(x = domain, y = as.matrix(kth_ROI), type = "l", col = 1:ncol(kth_ROI), lty = 1, 
+            main = "Original Data Before Smoothing", xaxt = "n")
+    add_rotated_x_labels(domain)
+    dev.off()
+    cat(crayon::green("Saved plot before smoothing at:"), crayon::bold(file_path_before), "\n")
+  } else {
+    cat(crayon::yellow("Skipping initial plot: File already exists at"), crayon::bold(file_path_before), "\n")
   }
   
-  return(smoothing_result)
+  # 스무딩 후 플롯 생성
+  if (!file.exists(file_path_after) || overwrite) {
+    png(filename = file_path_after, width = width, height = 600)
+    plot(smoothing_result$fdSmooth_obj$fd, col = 1:ncol(kth_ROI), lty = 1, 
+         main = paste("Optimal Smoothing with lambda =", smoothing_result$lambda), xaxt = "n")
+    add_rotated_x_labels(domain)
+    dev.off()
+    cat(crayon::green("Saved plot after smoothing at:"), crayon::bold(file_path_after), "\n")
+  } else {
+    cat(crayon::yellow("Skipping plot after smoothing: File already exists at"), crayon::bold(file_path_after), "\n")
+  }
 }
-
 
 
 
@@ -464,7 +473,7 @@ smoothing_by_bspline_gcv <- function(kth_ROI,
 combine_roi_files <- function(directory_path) {
   # 이미 export된 전체 결과 파일 확인
   existing_results_file <- list.files(
-    directory_path, pattern = "^results_smoothed.*\\.rds$", full.names = TRUE
+    directory_path, pattern = "^results.*\\.rds$", full.names = TRUE
   )
   
   if (length(existing_results_file) > 0) {
