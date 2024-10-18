@@ -320,6 +320,7 @@ smoothing_multiple_ROIs <- function(path_ith_FC,
   }
 }
 
+
 ## 🟨 각 atlas에 서로 다른 옵션 적용하는 함수 =======================================================================
 apply_smoothing_to_all_atlas_files <- function(path_all_FC, 
                                                train_folded,
