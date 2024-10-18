@@ -115,7 +115,7 @@ path_all_FC = path_all_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARglobalCWSF_FC"
 # path_export = "/Users/Ido/Downloads/test"
 common_options$path_export = path_export %>% adjust_path
-apply_smoothing_to_atlas_files(
+apply_smoothing_to_all_atlas_files(
   path_all_FC = path_all_FC, 
   train_folded = train_folded,
   test = test,
@@ -213,7 +213,7 @@ path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of c
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARCWSF_zReHo"
 # path_export = "/Users/Ido/Downloads/test"
 common_options$path_export = path_export %>% adjust_path
-apply_smoothing_to_atlas_files(
+apply_smoothing_to_all_atlas_files(
   path_all_FC = path_all_FC, 
   train_folded = train_folded,
   test = test,
@@ -230,7 +230,7 @@ path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of c
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARglobalCWSF_zReHo"
 # path_export = "/Users/Ido/Downloads/test"
 common_options$path_export = path_export %>% adjust_path
-apply_smoothing_to_atlas_files(
+apply_smoothing_to_all_atlas_files(
   path_all_FC = path_all_FC,
   train_folded = train_folded,
   test = test,
