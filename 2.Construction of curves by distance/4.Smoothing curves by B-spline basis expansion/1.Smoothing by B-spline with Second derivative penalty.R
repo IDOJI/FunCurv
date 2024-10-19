@@ -367,7 +367,7 @@ apply_smoothing_to_all_atlas_files(
 ## 🟨 FunImgARglobalCWSF ====================================================================================================================
 path_all_FC = "E:/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/zALFF_global"
 path_all_FC = path_all_FC %>% adjust_path
-path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARglobalCWSF_zALFF"
+path_export = "E:/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARglobalCWSF_zALFF"
 common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_all_atlas_files(
   path_all_FC = path_all_FC,

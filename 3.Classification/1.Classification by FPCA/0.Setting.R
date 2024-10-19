@@ -341,11 +341,6 @@ perform_fpca_for_all_roi <- function(path_smoothing_results,
                                      output_base_dir) {
   # 아웃풋 경로 설정
   base_folder_name <- basename(dirname(path_smoothing_results))
-  output_dir = file.path(output_base_dir, base_folder_name)
-  if (!dir.exists(output_dir)) {
-    dir.create(output_dir, recursive = TRUE)
-    print_message(sprintf("Created directory: %s", output_dir), crayon::green)
-  }
   
   # Output 파일 이름
   final_output_file <- file.path(output_base_dir, paste0(base_folder_name, "_fpca_results.rds"))
@@ -355,6 +350,12 @@ perform_fpca_for_all_roi <- function(path_smoothing_results,
     print_message(sprintf("File already exists: %s. Exiting without computation.", 
                           final_output_file), crayon::yellow)
     return(invisible(NULL))
+  }
+  
+  output_dir = file.path(output_base_dir, base_folder_name)
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+    print_message(sprintf("Created directory: %s", output_dir), crayon::green)
   }
   
   
@@ -557,7 +558,7 @@ process_atlas <- function(atlas_path, output_path, initial_nharm, portion) {
   
   # 각 폴드에 대해 반복문을 돌며 FPCA 수행
   for (k in seq_along(train_folds_paths)) {
-    # k=3
+    # k=5
     # fold 이름을 "fold_k" 형태로 만듦
     fold_name <- paste0("fold_", k)
     #여기할차례
