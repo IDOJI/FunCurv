@@ -503,7 +503,7 @@ process_atlas <- function(atlas_path, output_path, initial_nharm, portion, expor
                            previous_fpca_results = readRDS(list.files(output_base_dir, pattern = "total_train", full.names = T))[[1]])
   
   tmp = readRDS("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FPCA_FunImgARCWSF_FC/AAL3/fold_2_result.rds")
-  
+  1+1
   
   # 🟪 최종 결과 저장 ===============================================================================
   # 최종 FPCA 결과를 RDS 파일로 저장
