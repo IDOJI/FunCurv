@@ -101,7 +101,8 @@ apply_smoothing_to_all_atlas_files(
   train_folded = train_folded,
   test = test,
   options_for_each_atlas_list = options_for_each_atlas_list, 
-  common_options = common_options
+  common_options = common_options,
+  filtering_words = c("500Par", "17Net") 
 )
 
 

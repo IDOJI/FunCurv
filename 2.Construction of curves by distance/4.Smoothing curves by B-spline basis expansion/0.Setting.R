@@ -326,14 +326,23 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
                                                train_folded,
                                                test,
                                                options_for_each_atlas_list, 
-                                               common_options = list()) {
+                                               common_options = list(), 
+                                               filtering_words = character()) {  # 적절한 이름으로 수정
   # Load FC files list
   all_FC_file_list <- list.files(path_all_FC, full.names = TRUE)
   
+  # filtering_words에 지정된 문자열이 포함된 파일만 필터링
+  if (length(filtering_words) > 0) {
+    filtered_FC_file_list <- all_FC_file_list[sapply(all_FC_file_list, function(file) {
+      all(sapply(filtering_words, function(word) grepl(word, file)))
+    })]
+  } else {
+    filtered_FC_file_list <- all_FC_file_list
+  }
   
   # 각 atlas 파일에 대해 처리
-  for (path_ith_FC in all_FC_file_list) {
-    # path_ith_FC = all_FC_file_list[1]
+  for (path_ith_FC in filtered_FC_file_list) {
+    # path_ith_FC = filtered_FC_file_list[1]
     
     # 🟢 Atlas별 폴더 생성 ====================================================================
     atlas_name = tools::file_path_sans_ext(basename(path_ith_FC))
@@ -345,13 +354,9 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
       
     }
     
-    
-    
     # 🟢 getting option for the atlas ====================================================================
     final_options = c(common_options, get_options_for_file(atlas_name)) %>% 
       { .[(names(.) != "path_export")] }
-    
-    
     
     # 🟢 Test 데이터 처리 ====================================================================
     test_RID <- change_rid(test$RID)
@@ -363,8 +368,6 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
                          path_export = test_path), 
                     final_options)
     do.call(smoothing_multiple_ROIs, test_params)
-    
-    
     
     # 🟢 전체 Train 데이터 smoothing  ====================================================================
     train = rbind(train_folded$Fold_1_Train, train_folded$Fold_1_Validation)
@@ -378,13 +381,11 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
                      final_options)
     do.call(smoothing_multiple_ROIs, train_params)
     
-    
     # 🟢 각 폴드에 대해 Train 및 Validation 데이터 처리  ====================================================================
     for (fold in seq(1, 5)) {
       
       train_data <- train_folded[[paste0("Fold_", fold, "_Train")]]
       validation_data <- train_folded[[paste0("Fold_", fold, "_Validation")]]
-      
       
       train_RID <- change_rid(train_data$RID)
       validation_RID <- change_rid(validation_data$RID)
@@ -399,7 +400,6 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
                         final_options)
       do.call(smoothing_multiple_ROIs, train_params)
       
-      
       # Validation 데이터 처리
       validation_path <- file.path(atlas_export_path, "validation", paste0("fold_", fold))
       dir.create(validation_path, recursive = TRUE, showWarnings = FALSE)
@@ -413,9 +413,3 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
     }
   }
 }
-
-
-
-
-
-
