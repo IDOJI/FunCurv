@@ -220,9 +220,6 @@ print_message <- function(message, color_func = crayon::green) {
 ## 🟨 Extract FPC score of test data ==========================================================================
 compute_FPC_scores_of_test <- function(test_smoothing_result_path, 
                                        output_base_dir) {
-  # set output path
-  output_dir <- file.path(output_base_dir, "test")
-  dir.create(output_dir, showWarnings = F)
   
   # output file name
   path_test_fpca_results <- file.path(output_base_dir, "test_fpca_results.rds")
@@ -341,8 +338,7 @@ process_single_roi <- function(roi_obj, roi_name, output_dir, export.each.roi, i
 perform_fpca_for_all_roi <- function(path_smoothing_results,
                                      initial_nharm = 50, 
                                      portion = 0.9, 
-                                     output_base_dir, 
-                                     export.each.roi = TRUE) {
+                                     output_base_dir) {
   # 아웃풋 경로 설정
   base_folder_name <- basename(dirname(path_smoothing_results))
   output_dir = file.path(output_base_dir, base_folder_name)
@@ -523,7 +519,7 @@ clean_temp_files <- function(train_folds_paths, atlas_dir) {
 
 ## 🟨 최종 FPCA 수행 함수 ==========================================================================
 # 최종 FPCA 수행 함수
-process_atlas <- function(atlas_path, output_path, initial_nharm, portion, export_each_roi = TRUE) {
+process_atlas <- function(atlas_path, output_path, initial_nharm, portion) {
   
   # 아틀라스의 이름을 추출 (디렉토리 경로에서 마지막 부분)
   atlas_name <- basename(atlas_path)
@@ -581,13 +577,12 @@ process_atlas <- function(atlas_path, output_path, initial_nharm, portion, expor
   perform_fpca_for_all_roi(path_smoothing_results = total_train_smoothing_result_path, 
                            initial_nharm,
                            portion,
-                           output_base_dir,
-                           export.each.roi)
+                           output_base_dir = atlas_dir)
   
   
   # test데이터 FPC 
   test_smoothing_result_path <- list.files(file.path(atlas_path, "test"), pattern = "\\.rds$", full.names = TRUE)
-  compute_FPC_scores_of_test(test_smoothing_result_path, output_base_dir)
+  compute_FPC_scores_of_test(test_smoothing_result_path, output_base_dir = atlas_dir)
 
   
   
@@ -617,8 +612,7 @@ process_atlas <- function(atlas_path, output_path, initial_nharm, portion, expor
 perform_fpca_for_multiple_atlases <- function(input_paths, 
                                               output_path, 
                                               initial_nharm = 50, 
-                                              portion = 0.9, 
-                                              export_each_roi = FALSE) {
+                                              portion = 0.9) {
   dir.create(output_path, showWarnings = FALSE, recursive = TRUE)
   
   # atlas 폴더만 선택해서 읽어오기
@@ -628,7 +622,7 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
   # 아틀라스별 로 FPCA 수행
   results_list <- lapply(all_atlas_paths, function(atlas_path) {
     # atlas_path = all_atlas_paths[1]
-    process_atlas(atlas_path, output_path, initial_nharm, portion, export_each_roi)
+    process_atlas(atlas_path, output_path, initial_nharm, portion)
   })
   
   invisible(NULL)

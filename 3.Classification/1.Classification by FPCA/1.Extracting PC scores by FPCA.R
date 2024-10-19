@@ -10,7 +10,7 @@ perform_fpca_for_multiple_atlases(input_paths %>% convert_path, output_path %>% 
 ## 🟨 FunImgARglobalCWSF ===================================================================================================
 input_paths <- "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARglobalCWSF_FC"
 output_path <- "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FPCA_FunImgARglobalCWSF_FC"
-perform_fpca_for_multiple_atlases(input_paths %>% convert_path, output_path %>% set_output_path)
+perform_fpca_for_multiple_atlases(input_paths = input_paths %>% convert_path, output_path = output_path %>% set_output_path)
 
 
 

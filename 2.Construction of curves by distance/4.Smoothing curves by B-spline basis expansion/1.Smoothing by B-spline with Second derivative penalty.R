@@ -349,7 +349,7 @@ common_options <- list(path_export = "/path/to/export",
 path_all_FC = "E:/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARCWSF/zALFF_non"
 path_all_FC = path_all_FC %>% adjust_path
 path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARCWSF_zALFF"
-# path_export = "/Users/Ido/Downloads/test"
+path_export = "E:/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARglobalCWSF_zALFF"
 common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_all_atlas_files(
   path_all_FC = path_all_FC, 
@@ -618,9 +618,9 @@ apply_smoothing_to_all_atlas_files(
 
 
 ## 🟨 FunImgARglobalCWSF ====================================================================================================================
-path_all_FC = "E:/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/zDegreeCentrality_PositiveBinarizedSumBrainMap_global"
+path_all_FC = "E:/FunCurv/2.Construction of curves by distance/3.Curves by Distance/FunImgARglobalCWSF/zDegreeCentrality_PositiveWeightedSumBrainMap_global"
 path_all_FC = path_all_FC %>% adjust_path
-path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARglobalCWSF_zDC_positive"
+path_export = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/Smoothing_FunImgARglobalCWSF_zDC_weighted"
 # path_export = "/Users/Ido/Downloads/test"
 common_options$path_export = path_export %>% adjust_path
 apply_smoothing_to_all_atlas_files(
