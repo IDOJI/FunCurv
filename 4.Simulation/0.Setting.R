@@ -39,344 +39,178 @@ select = dplyr::select
 
 
 # 🟥 Define smoothing functions =========================================================================================================
+# 필요한 패키지 로드
+library(dplyr)
+library(caret)
 library(fda)
+library(purrr)
 library(crayon)
-library(tictoc)
 
-
-## 🟨 FD obj 뺄셈 정의 ==========================================================================
-subtract_fd_mean <- function(fd_obj, mean_fd) {
-  # 두 객체의 basis가 동일한지 확인
-  if (!identical(fd_obj$basis, mean_fd$basis)) {
-    stop("Both fd objects must have the same basis.")
+# 1) 데이터 샘플링 함수
+bootstrap_sample <- function(data, sample_size = NULL) {
+  if (is.null(sample_size)) {
+    sample_size <- nrow(data)
   }
   
-  # validation_fd_obj의 계수 행렬과 mean_function의 계수 행렬 가져오기
-  coef_obj <- fd_obj$coefs
-  mean_coef <- mean_fd$coefs
+  data %>%
+    group_by(DIAGNOSIS_FINAL) %>%
+    sample_frac(size = sample_size / nrow(data), replace = TRUE) %>%
+    ungroup()
+}
+
+# 2) 데이터 분할 함수 (Train/Test)
+split_data <- function(data, train_ratio = 0.7) {
+  set.seed(123)  # 재현성을 위해 시드 설정
+  train_index <- createDataPartition(data$DIAGNOSIS_FINAL, p = train_ratio, list = FALSE)
+  train_data <- data[train_index, ]
+  test_data <- data[-train_index, ]
+  list(train = train_data, test = test_data)
+}
+
+# 3) K-Fold 분할 함수
+create_folds <- function(train_data, k = 5) {
+  set.seed(123)
+  folds <- createFolds(train_data$DIAGNOSIS_FINAL, k = k, returnTrain = TRUE)
+  fold_list <- lapply(1:k, function(i) {
+    validation_index <- setdiff(1:nrow(train_data), folds[[i]])
+    list(
+      train = train_data[folds[[i]], ],
+      validation = train_data[validation_index, ]
+    )
+  })
+  names(fold_list) <- paste0("Fold_", 1:k)
+  fold_list
+}
+
+# 4) Smoothing 및 FPCA 함수
+perform_smoothing_fpca <- function(train_data, validation_data, domain, n_order = 4, n_breaks = NULL, lambda = 1e-4, nharm = 5) {
+  # Smoothing
+  basis <- create.bspline.basis(rangeval = c(min(domain), max(domain)), norder = n_order, nbasis = ifelse(is.null(n_breaks), length(domain), n_breaks))
+  fdPar_obj <- fdPar(basis, Lfdobj = int2Lfd(2), lambda = lambda)
   
-  # mean_function의 계수를 fd_obj의 피험자 수에 맞게 반복 확장
-  mean_coef_expanded <- matrix(
-    rep(mean_coef, ncol(coef_obj)),
-    nrow = nrow(coef_obj),
-    ncol = ncol(coef_obj)
+  # Train 데이터 smoothing
+  train_fd <- smooth.basis(argvals = domain, y = t(train_data), fdParobj = fdPar_obj)$fd
+  
+  # FPCA
+  fpca_result <- pca.fd(train_fd, nharm = nharm, centerfns = TRUE)
+  
+  # Validation 데이터 smoothing
+  validation_fd <- smooth.basis(argvals = domain, y = t(validation_data), fdParobj = fdPar_obj)$fd
+  
+  # Validation 데이터에서 FPC score 계산
+  validation_scores <- inprod(validation_fd, fpca_result$harmonics)
+  
+  list(
+    fpca_result = fpca_result,
+    train_scores = fpca_result$scores,
+    validation_scores = validation_scores
+  )
+}
+
+# 5) Functional Logistic Regression 및 성능 평가 함수
+evaluate_model <- function(train_scores, train_labels, validation_scores, validation_labels) {
+  # 모델 적합
+  model <- glm(train_labels ~ ., data = as.data.frame(train_scores), family = binomial)
+  
+  # 예측
+  predictions <- predict(model, newdata = as.data.frame(validation_scores), type = "response")
+  predicted_classes <- ifelse(predictions > 0.5, 1, 0)
+  
+  # 성능 평가
+  confusion <- confusionMatrix(as.factor(predicted_classes), as.factor(validation_labels))
+  performance <- list(
+    accuracy = confusion$overall['Accuracy'],
+    kappa = confusion$overall['Kappa']
   )
   
-  # 계수 행렬의 뺄셈 수행
-  new_coefs <- coef_obj - mean_coef_expanded
+  performance
+}
+
+# 6) 하이퍼파라미터 튜닝 및 최종 모델 평가 함수
+tune_and_evaluate <- function(fold_results, test_scores, test_labels) {
+  # 각 fold의 성능 수집
+  performances <- map(fold_results, "performance")
   
-  # 새 fd 객체 생성
-  result_fd <- fd(coef = new_coefs, 
-                  basisobj = fd_obj$basis, 
-                  fdnames = fd_obj$fdnames)
+  # 가장 성능이 좋은 하이퍼파라미터 선택 (예: accuracy 기준)
+  best_fold <- which.max(map_dbl(performances, "accuracy"))
   
-  return(result_fd)
+  # 최적 모델로 테스트 데이터 평가
+  best_model <- fold_results[[best_fold]]$model
+  predictions <- predict(best_model, newdata = as.data.frame(test_scores), type = "response")
+  predicted_classes <- ifelse(predictions > 0.5, 1, 0)
+  
+  # 최종 성능 평가
+  confusion <- confusionMatrix(as.factor(predicted_classes), as.factor(test_labels))
+  final_performance <- list(
+    accuracy = confusion$overall['Accuracy'],
+    kappa = confusion$overall['Kappa']
+  )
+  
+  final_performance
 }
 
 
 
-
-## 🟨 여러 아틀라스에 FPCA 실행 ==========================================================================
-perform_fpca_for_multiple_atlases <- function(input_paths, 
-                                              output_path, 
-                                              initial_nharm = 50, 
-                                              portion = 0.9, 
-                                              export_each_roi = FALSE) {
-  dir.create(output_path, showWarnings = FALSE, recursive = TRUE)
+# 전체 프로세스를 실행하는 메인 함수
+run_analysis <- function(subject_data, domain, sample_size = NULL, train_ratio = 0.7, k_folds = 5, n_order = 4, n_breaks = NULL, lambda = 1e-4, nharm = 5) {
+  # 1) 부트스트랩 샘플링
+  sampled_data <- bootstrap_sample(subject_data, sample_size)
   
-  # 여러 경로에서 모든 아틀라스 파일 목록 수집
-  all_atlas_paths <- unlist(lapply(input_paths, function(input_path) {
-    list.files(input_path, full.names = TRUE)
-  }))
+  # 2) Train/Test 분할
+  split <- split_data(sampled_data, train_ratio)
+  train_data <- split$train
+  test_data <- split$test
   
-  # 아틀라스별로 FPCA 수행
-  results_list <- lapply(all_atlas_paths, function(atlas_path) {
-    atlas_name <- basename(atlas_path)
-    print_message(sprintf("Processing Atlas: %s", atlas_name), crayon::blue)
+  # 레이블 추출
+  test_labels <- test_data$DIAGNOSIS_FINAL
+  
+  # 3) K-Fold 생성
+  folds <- create_folds(train_data, k = k_folds)
+  
+  # 4) 각 Fold에 대해 Smoothing 및 FPCA 수행
+  fold_results <- lapply(folds, function(fold) {
+    train_fold <- fold$train
+    validation_fold <- fold$validation
     
-    atlas_dir <- file.path(output_path, atlas_name)
-    dir.create(atlas_dir, showWarnings = FALSE, recursive = TRUE)
+    # 데이터 준비 (예시로 필요한 변수만 추출)
+    train_matrix <- as.matrix(train_fold[ , -which(names(train_fold) %in% c("RID", "DIAGNOSIS_FINAL"))])
+    validation_matrix <- as.matrix(validation_fold[ , -which(names(validation_fold) %in% c("RID", "DIAGNOSIS_FINAL"))])
     
-    # 최종 결과 파일 경로
-    final_output_file <- file.path(atlas_dir, paste0("FPCA_results_", atlas_name, ".rds"))
+    # Smoothing 및 FPCA 수행
+    fpca <- perform_smoothing_fpca(train_matrix, validation_matrix, domain, n_order, n_breaks, lambda, nharm)
     
-    # 최종 결과가 이미 존재하면 계산 생략
-    if (file.exists(final_output_file)) {
-      print_message(sprintf("Final results for atlas %s already exist. Loading results...", atlas_name), crayon::yellow)
-      return(readRDS(final_output_file))
-    }
+    # 5) 모델 적합 및 성능 평가
+    performance <- evaluate_model(fpca$train_scores, train_fold$DIAGNOSIS_FINAL, fpca$validation_scores, validation_fold$DIAGNOSIS_FINAL)
     
-    # 각 폴드의 train 및 validation 스무딩 결과 경로 가져오기
-    train_folds_paths <- list.dirs(file.path(atlas_path, "train"), recursive = FALSE)
-    validation_folds_paths <- list.dirs(file.path(atlas_path, "validation"), recursive = FALSE)
-    
-    # 모든 fold_1부터 fold_5까지 존재하는지 확인
-    required_folds <- paste0("fold_", 1:5)
-    all_folds_exist <- all(required_folds %in% basename(train_folds_paths)) &&
-      all(required_folds %in% basename(validation_folds_paths))
-    
-    if (!all_folds_exist) {
-      print_message(sprintf("Skipping Atlas %s: Not all folds found", atlas_name), crayon::red)
-      return(NULL)
-    }
-    
-    # 테스트 데이터의 스무딩 결과 읽기
-    test_smoothing_result_path <- list.files(file.path(atlas_path, "test"), pattern = "\\.rds$", full.names = TRUE)
-    test_smoothing_result <- readRDS(test_smoothing_result_path)
-    
-    # 결과를 저장할 리스트 초기화
-    fold_results <- list()
-    
-    # 각 폴드에 대해 FPCA 수행
-    for (k in seq_along(train_folds_paths)) {
-      fold_name <- paste0("fold_", k)
-      fold_result_file <- file.path(atlas_dir, paste0(fold_name, "_result.rds"))
-      
-      # 이미 해당 폴드 결과가 존재하면 불러오기
-      if (file.exists(fold_result_file)) {
-        print_message(sprintf("Loading existing results for %s", fold_name), crayon::blue)
-        fold_results[[fold_name]] <- readRDS(fold_result_file)
-        next
-      }
-      
-      print_message(sprintf("Processing %s", fold_name), crayon::cyan)
-      
-      train_fold_path <- train_folds_paths[k]
-      validation_fold_path <- validation_folds_paths[k]
-      
-      train_smoothing_result_file <- list.files(train_fold_path, pattern = "\\.rds$", full.names = TRUE)
-      train_smoothing_result <- readRDS(train_smoothing_result_file)
-      
-      validation_smoothing_result_file <- list.files(validation_fold_path, pattern = "\\.rds$", full.names = TRUE)
-      validation_smoothing_result <- readRDS(validation_smoothing_result_file)
-      
-      # 폴드에 대한 FPCA 수행
-      fold_result <- perform_fpca_for_fold(
-        train_smoothing_results = train_smoothing_result,
-        validation_smoothing_results = validation_smoothing_result,
-        initial_nharm = initial_nharm,
-        portion = portion,
-        output_base_dir = atlas_dir,
-        fold_name = fold_name,
-        export_each_roi = export_each_roi
-      )
-      
-      # 결과를 임시로 저장
-      saveRDS(fold_result, fold_result_file)
-      fold_results[[fold_name]] <- fold_result
-    }
-    
-    # 테스트 데이터 스무딩 결과 포함
-    fold_results$test_smoothing_result <- test_smoothing_result
-    
-    # 최종 결과를 RDS 파일로 저장
-    saveRDS(fold_results, final_output_file)
-    print_message(sprintf("Saved FPCA results for atlas %s to %s", atlas_name, final_output_file), crayon::green)
-    
-    # 임시 파일 정리
-    print_message("Cleaning up temporary files...", crayon::magenta)
-    for (k in seq_along(train_folds_paths)) {
-      fold_result_file <- file.path(atlas_dir, paste0("fold_", k, "_result.rds"))
-      if (file.exists(fold_result_file)) {
-        file.remove(fold_result_file)
-      }
-    }
-    
-    return(fold_results)
+    list(
+      model = glm(train_fold$DIAGNOSIS_FINAL ~ ., data = as.data.frame(fpca$train_scores), family = binomial),
+      performance = performance
+    )
   })
   
-  return(invisible(results_list))
+  # 7) 전체 Train 데이터로 FPCA 수행
+  total_train_matrix <- as.matrix(train_data[ , -which(names(train_data) %in% c("RID", "DIAGNOSIS_FINAL"))])
+  test_matrix <- as.matrix(test_data[ , -which(names(test_data) %in% c("RID", "DIAGNOSIS_FINAL"))])
+  
+  total_fpca <- perform_smoothing_fpca(total_train_matrix, test_matrix, domain, n_order, n_breaks, lambda, nharm)
+  
+  # 6) 최적 하이퍼파라미터로 테스트 데이터 평가
+  final_performance <- tune_and_evaluate(fold_results, total_fpca$validation_scores, test_labels)
+  
+  final_performance
 }
 
+# 함수 실행 예시
+# domain은 관측된 데이터의 도메인 (예: 시간 또는 공간 좌표)
+# subject_data는 RID, DIAGNOSIS_FINAL 및 관측 데이터가 포함된 데이터프레임
 
+# 예시 데이터 로드 (사용자의 실제 데이터로 대체해야 함)
+# subject_data <- read.csv("your_subject_data.csv")
+# domain <- seq(0, 1, length.out = ncol(subject_data) - 2)
 
-## 🟨 각 fold에 FPCA 적용하는 함수 ==========================================================================
-perform_fpca_for_fold <- function(train_smoothing_results, 
-                                  validation_smoothing_results, 
-                                  initial_nharm = 50, 
-                                  portion = 0.9, 
-                                  output_base_dir, 
-                                  fold_name, 
-                                  export_each_roi = FALSE) {
-  
-  dir.create(output_base_dir,showWarnings = F, recursive = T)
-  
-  # 결과를 저장할 리스트 초기화
-  roi_results <- list()
-  
-  # ROI 이름 목록 얻기
-  roi_names <- names(train_smoothing_results)
-  
-  # 각 ROI에 대해 처리
-  for (roi_name in roi_names) {
-    # ROI 이름 설정 및 처리 시작
-    print_message(sprintf("Processing ROI: %s", roi_name), crayon::silver)
-    
-    # Train 및 Validation 데이터의 fd 객체 가져오기
-    train_fd_obj <- train_smoothing_results[[roi_name]]$fdSmooth_obj$fd
-    validation_fd_obj <- validation_smoothing_results[[roi_name]]$fdSmooth_obj$fd
-    
-    # 🟩 Train 데이터에 대해 FPCA 수행
-    fpca_train_results <- pca.fd(train_fd_obj, nharm = initial_nharm, centerfns = TRUE)
-    
-    # 🟩 누적 분산 비율 계산 및 필요한 harmonic 개수 선택
-    cumulative_variance <- cumsum(fpca_train_results$varprop)
-    selected_harm <- which(cumulative_variance >= portion)[1]
-    
-    # 필요한 harmonic과 score 추출 (Train 데이터)
-    selected_harmonics <- fpca_train_results$harmonics[1:selected_harm]
-    train_scores <- as.data.frame(fpca_train_results$scores[, 1:selected_harm])
-    colnames(train_scores) <- paste0("FPC_", seq_len(ncol(train_scores)))
-    
-    # 🟩 Validation 데이터 중심화 (Train 데이터의 평균 함수 사용)
-    centered_validation_fd <- subtract_fd_mean(
-      fd_obj = validation_fd_obj, 
-      mean_fd = fpca_train_results$meanfd
-    )
-    
-    # 🟩 Validation 데이터의 FPC 점수 계산
-    validation_scores_full <- inprod(centered_validation_fd, selected_harmonics)
-    
-    # 필요한 harmonic 개수만 선택
-    validation_scores <- as.data.frame(validation_scores_full)
-    colnames(validation_scores) <- paste0("FPC_", seq_len(ncol(validation_scores)))
-    
-    
-    # 결과를 리스트로 저장
-    # object.size(roi_result)
-    roi_result <- list(
-      fpca_train_results = fpca_train_results,
-      harmonics = selected_harmonics,
-      train_scores = train_scores,
-      validation_scores = validation_scores,
-      var_explained = cumulative_variance[selected_harm]
-    )
-    
-    # 개별 ROI 결과를 파일로 저장 (선택 사항)
-    if (export_each_roi) {
-      output_dir <- file.path(output_base_dir, fold_name)
-      if (!dir.exists(output_dir)) {
-        dir.create(output_dir, recursive = TRUE)
-      }
-      output_file <- file.path(output_dir, paste0(roi_name, ".rds"))
-      saveRDS(roi_result, output_file)
-      print_message(sprintf("Saved FPCA results for %s to %s", roi_name, output_file), crayon::green)
-    }
-    
-    roi_results[[roi_name]] <- roi_result
-  }
-  
-  return(roi_results)
-}
-
-
-## 🟨 메시지 출력 함수 ==========================================================================
-print_message <- function(message, color_func = crayon::green) {
-  cat(color_func(message), "\n")
-}
-
-## 🟨 각 ROI에 대해 FPCA 수행 및 저장하는 함수 ==========================================================================
-process_single_roi <- function(roi_obj, roi_name, output_dir, export.each.roi, initial_nharm, portion) {
-  
-  # 🟩 portion 값 검사: 0과 1 사이에 있는지 확인
-  if (portion <= 0 || portion >= 1) {
-    stop(
-      crayon::red(sprintf(
-        "Error: 'portion' must be a value between 0 and 1. Given: %.2f", portion
-      ))
-    )
-  }
-  
-  # 각 ROI의 결과 저장 경로 설정
-  output_file <- file.path(output_dir, paste0(roi_name, ".rds"))
-  
-  # 이미 파일이 존재하면 계산을 건너뛰기
-  if (file.exists(output_file) && export.each.roi) {
-    print_message(sprintf("Skipping %s: File already exists.", roi_name), crayon::yellow)
-    return(readRDS(output_file))
-  }
-  
-  # FPCA 수행
-  fd_obj <- roi_obj$fdSmooth_obj$fd
-  fpca_results <- pca.fd(fd_obj, nharm = initial_nharm, centerfns = TRUE)
-  
-  # 누적 분산 비율 계산 및 필요한 harmonic 개수 선택
-  cumulative_variance <- cumsum(fpca_results$varprop)
-  selected_harm <- which(cumulative_variance >= portion)[1]
-  
-  # 메시지 출력
-  print_message(
-    sprintf("Selected %d harmonics to explain at least %.2f%% of the variance.", 
-            selected_harm, portion * 100),
-    crayon::green
-  )
-  
-  # 필요한 harmonic과 score 추출
-  selected_harmonics <- fpca_results$harmonics[1:selected_harm]
-  selected_scores <- as.data.frame(fpca_results$scores[, 1:selected_harm])
-  colnames(selected_scores) <- paste0("FPC_", seq_len(ncol(selected_scores)))
-  
-  # 결과를 리스트로 저장
-  result <- list(
-    harmonics = selected_harmonics,
-    scores = selected_scores,
-    var_explained = cumulative_variance[selected_harm]
-  )
-  
-  # 결과를 RDS 파일로 저장
-  if (export.each.roi) {
-    saveRDS(result, output_file)
-    print_message(sprintf("Saved FPCA results for %s to %s", roi_name, output_file))
-  }
-  
-  return(result)
-}
-
-
-## 🟨 모든 ROI에 대해 FPCA 수행 및 결과 저장하는 함수 ==========================================================================
-perform_fpca_for_all <- function(path_smoothing_results, initial_nharm = 50, portion = 0.9, output_base_dir, export.each.roi = FALSE) {
-  smoothing_results <- readRDS(path_smoothing_results)
-  base_folder_name <- basename(dirname(path_smoothing_results))
-  output_dir <- file.path(output_base_dir, base_folder_name)
-  
-  if (is.null(names(smoothing_results))) {
-    names(smoothing_results) <- paste0("ROI_", 1:length(smoothing_results))  
-  }
-  
-  if (!dir.exists(output_dir)) {
-    dir.create(output_dir, recursive = TRUE)
-    print_message(sprintf("Created directory: %s", output_dir), crayon::green)
-  }
-  
-  final_output_file <- file.path(output_dir, paste0(base_folder_name, "_fpca_all_results.rds"))
-  combined_pc_scores_file <- file.path(output_dir, paste0(base_folder_name, "_combined_pc_scores.rds"))
-  
-  # 파일 존재 여부 확인 및 조기 종료
-  if (file.exists(final_output_file) && file.exists(combined_pc_scores_file)) {
-    print_message(sprintf("Files already exist: %s and %s. Exiting without computation.", 
-                          final_output_file, combined_pc_scores_file), crayon::yellow)
-    return(invisible(NULL))
-  }
-  
-  tictoc::tic("FPCA computation completed")
-  all_results <- lapply(names(smoothing_results), function(roi_name) {
-    roi_obj <- smoothing_results[[roi_name]]
-    process_single_roi(roi_obj, roi_name, output_dir, export.each.roi, initial_nharm, portion)
-  }) %>% setNames(paste0("FPCA_", names(smoothing_results)))
-  tictoc::toc()
-  
-  combined_pc_scores <- do.call(cbind, lapply(names(all_results), function(ith_ROI) {
-    names(all_results[[ith_ROI]]$scores) <- paste0(ith_ROI, "_FPC_", seq_len(ncol(all_results[[ith_ROI]]$scores)))
-    return(all_results[[ith_ROI]]$scores)
-  }))
-  
-  saveRDS(all_results, final_output_file)
-  saveRDS(combined_pc_scores, combined_pc_scores_file)
-  
-  print_message(sprintf("Saved combined FPCA results to %s", final_output_file), crayon::green)
-}
-
-
+# 결과 실행
+# result <- run_analysis(subject_data, domain)
+# print(result)
 
 
 
