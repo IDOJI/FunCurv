@@ -2,7 +2,7 @@
 # rm(list = ls())
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 
-## 🟨Install and loading Packages ================================
+
 install_packages = function(packages, load=TRUE) {
   # load : load the packages after installation?
   for(pkg in packages) {
@@ -60,8 +60,13 @@ set_output_path <- function(input_path) {
 library(fda)
 library(crayon)
 library(tictoc)
+## 🟨 선택 ROI개수 벡터 ==========================================================================
+the_number_of_repeated_roi = function(df){
+  roi_numbers <- as.numeric(sub("ROI_(\\d+)_FPC_\\d+", "\\1", colnames(total_test_fpca)))
+  return(roi_numbers)
+}
 
-## 🟨 경로 자동 변환 함수 정의 ==========================================================================
+ㄴ## 🟨 경로 자동 변환 함수 정의 ==========================================================================
 convert_path <- function(input_path) {
   if (.Platform$OS.type == "windows") {
     # macOS 경로를 Windows 경로로 변환
@@ -232,18 +237,18 @@ print_message <- function(message, color_func = crayon::green) {
 
 ## 🟨 Extract FPC score of test data ==========================================================================
 compute_FPC_scores_of_test <- function(test_smoothing_result_path, 
-                                       output_base_dir,
-                                       export_test) {
+                                       atlas_dir,
+                                       export_test = T) {
   
   # output file name
-  path_test_fpca_results <- file.path(output_base_dir, "test_fpca_results.rds")
+  path_test_fpca_results <- file.path(atlas_dir, "test_fpca_results.rds")
   if (file.exists(path_test_fpca_results)) {
     cat(crayon::green("test FPCA 결과 파일이 존재합니다.\n"))
     return(NULL)
   }
   
   # Load train results
-  total_train_fpc_results_path <- list.files(output_base_dir, "total_train_fpca", full.names = T)
+  total_train_fpc_results_path <- list.files(atlas_dir, "total_train_fpca", full.names = T)
   cat(crayon::blue("Training FPCA results loaded from: "), crayon::yellow(total_train_fpc_results_path), "\n")
   total_train_fpc <- readRDS(total_train_fpc_results_path)
   
@@ -252,34 +257,41 @@ compute_FPC_scores_of_test <- function(test_smoothing_result_path,
   cat(crayon::blue("Test smoothing results loaded from: "), crayon::yellow(test_smoothing_result_path), "\n")
   
   # 각 ROI 마다 결과 적용
-  total_test_fpca <- lapply(names(total_train_fpc$FPCA_ROI), function(roi_name) {
+  total_test_fpca <- lapply(names(test_smoothing), function(roi_name) {
+    # roi_name = names(total_train_fpc$Combined_FPCA_ROI)[1]
     
     # Test 데이터 중심화 (Train 데이터의 평균 함수 사용)
     centered_roi_obj_fd <- subtract_fd_mean(
       fd_obj = test_smoothing[[roi_name]]$fdSmooth_obj$fd,
-      mean_fd = total_train_fpc$FPCA_ROI[[roi_name]]$fpca_results$meanfd
+      mean_fd = total_train_fpc$Combined_FPCA_ROI[[roi_name]]$fpca_results$meanfd
     )
     
     # Validation 데이터의 FPC 점수 계산
-    test_fpc_scores <- inprod(centered_roi_obj_fd, total_train_fpc$FPCA_ROI[[roi_name]]$selected_harmonics) %>% 
+    test_fpc_scores <- inprod(centered_roi_obj_fd, total_train_fpc$Combined_FPCA_ROI[[roi_name]]$selected_harmonics) %>% 
       as.data.frame() %>% 
       setNames(paste0(roi_name, "_FPC_", seq_len(ncol(.))))
     
     cat(crayon::blue("FPC scores computed for ROI: "), crayon::yellow(roi_name), "\n")
     
     return(test_fpc_scores)
-  }) %>% 
-    setNames(names(total_train_fpc$FPCA_ROI))
+  }) %>% do.call(cbind, .)
+  
+  rownames(total_test_fpca) = test_smoothing$ROI_001$fdSmooth_obj$y %>% colnames
   
   # ROI 숫자 반복 처리
-  repeated_roi <- sapply(total_test_fpca, ncol) %>% 
-    { setNames(., gsub("ROI_", "", names(.))) } %>% 
-    { unlist(mapply(rep, as.numeric(names(.)), .)) }
+  repeated_roi = the_number_of_repeated_roi(total_test_fpca)
+  
   
   # 결과 저장
   cat(crayon::blue("Saving FPCA results to: "), crayon::yellow(path_test_fpca_results), "\n")
-  list(total_test_fpca = total_test_fpca, 
-       repeated_ROI = repeated_roi) %>% saveRDS(., path_test_fpca_results)
+  combined_data = list(total_test_fpca = total_test_fpca, 
+                       repeated_ROI = repeated_roi)
+  
+  if(export_test){
+    saveRDS(combined_data, path_test_fpca_results)  
+  }
+  
+  return(combined_data)
   
   cat(crayon::green("FPCA 결과 저장 완료.\n"))
 }
@@ -355,23 +367,25 @@ process_single_roi = function(roi_obj, roi_name, output_dir, initial_nharm, port
 perform_fpca_for_all_roi <- function(path_smoothing_results,
                                      initial_nharm = 50, 
                                      portion = 0.9, 
-                                     output_base_dir,
+                                     atlas_dir,
                                      export_each_roi = T,
                                      export_total_train = T) {
   # 아웃풋 경로 설정
   base_folder_name <- basename(dirname(path_smoothing_results))
   
   # Output 파일 이름
-  final_output_file <- file.path(output_base_dir, paste0(base_folder_name, "_fpca_results.rds"))
+  final_output_file <- file.path(atlas_dir, paste0(base_folder_name, "_fpca_results.rds"))
   
   # 파일 존재 여부 확인 및 조기 종료
   if (file.exists(final_output_file)) {
     print_message(sprintf("File already exists: %s. Exiting without computation.", 
                           final_output_file), crayon::yellow)
-    return(invisible(NULL))
+    if(export_total_train){
+      return(final_output_file %>% readRDS)
+    }
   }
   
-  output_dir = file.path(output_base_dir, base_folder_name)
+  output_dir = file.path(atlas_dir, base_folder_name)
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
     print_message(sprintf("Created directory: %s", output_dir), crayon::green)
@@ -406,6 +420,9 @@ perform_fpca_for_all_roi <- function(path_smoothing_results,
   
   # combined
   combined_results = list(Combined_FPCA_ROI = all_results, FPC_Scores = combined_pc_scores)
+  combined_results[[repeated_roi]] = the_number_of_repeated_roi(combined_results[[combined_pc_scores]])
+  
+  
   if(export_total_train){
     saveRDS(combined_results, final_output_file)
   }
@@ -483,9 +500,12 @@ process_fold <- function(k, train_folds_paths, validation_folds_paths, atlas_dir
   
   print_message(sprintf("Processing %s", fold_name), crayon::cyan)
   
+  
   # 경로 추출
   train_fold_path <- train_folds_paths[k]
   validation_fold_path <- validation_folds_paths[k]
+  
+  
   
   # smoothing 결과 로드
   train_smoothing_result_file <- list.files(train_fold_path, pattern = "\\.rds$", full.names = TRUE)
@@ -494,23 +514,23 @@ process_fold <- function(k, train_folds_paths, validation_folds_paths, atlas_dir
   validation_smoothing_result_file <- list.files(validation_fold_path, pattern = "\\.rds$", full.names = TRUE)
   validation_smoothing_results <- readRDS(validation_smoothing_result_file)
   
+  
+  
   # 전체 결과 저장 list
   combined_fold_result = list()
   
   
+  
   # 각 smoothing 결과에 fpca 적용
   combined_fold_result[[paste0(fold_name, "_fpca_results")]] <- perform_fpca_for_fold(
-    train_smoothing_results = train_smoothing_results,
-    validation_smoothing_results = validation_smoothing_results,
-    initial_nharm = initial_nharm,
-    portion = portion,
-    atlas_dir = atlas_dir,
-    fold_name = fold_name,
-    export_each_roi = export_each_roi
+    train_smoothing_results,
+    validation_smoothing_results,
+    initial_nharm,
+    portion,
+    atlas_dir,
+    fold_name,
+    export_each_roi
   )
-  
-  
-  
   
   
   # Extract Scores
@@ -525,6 +545,10 @@ process_fold <- function(k, train_folds_paths, validation_folds_paths, atlas_dir
   }) %>% 
     do.call(bind_cols, .) %>% 
     `rownames<-`(colnames(validation_smoothing_results$ROI_001$fdSmooth_obj$y))
+  
+  
+  combined_fold_result[[repeated_roi]] = the_number_of_repeated_roi(combined_fold_result[[paste0(fold_name, "_Train_FPC_Scores")]])
+  
   
   
   # 파일 저장
@@ -610,6 +634,8 @@ process_atlas <- function(atlas_path,
     )
     
   }
+  final_results[["Fold_FPCA"]] = fold_results
+  
   
   
   # 🟪 Test & Total Train ===============================================================================
@@ -618,27 +644,20 @@ process_atlas <- function(atlas_path,
   final_results[["Total_Train_FPCA"]] = perform_fpca_for_all_roi(path_smoothing_results = total_train_smoothing_result_path, 
                                                                  initial_nharm,
                                                                  portion,
-                                                                 output_base_dir = atlas_dir,
+                                                                 atlas_dir,
                                                                  export_each_roi,
                                                                  export_total_train)
   
   
   # test데이터 FPC 
   test_smoothing_result_path <- list.files(file.path(atlas_path, "test"), pattern = "\\.rds$", full.names = TRUE)
-  compute_FPC_scores_of_test(test_smoothing_result_path, 
-                             output_base_dir = atlas_dir,
-                             export_test)
+  final_results[["Total_Train_FPCA"]] = compute_FPC_scores_of_test(test_smoothing_result_path, 
+                                                                   atlas_dir,
+                                                                   export_test)
 
   
   
   # 🟪 최종 결과 저장 ===============================================================================
-  # 최종 FPCA 결과를 RDS 파일로 저장
-  # saveRDS(fold_results, final_output_file)
-  
-  # 저장 완료 메시지를 출력
-  # print_message(sprintf("Saved FPCA results for atlas %s to %s", atlas_name, final_output_file), crayon::green)
-  
-  # FPCA가 완료된 후 메시지 출력
   cat(
     crayon::blue("FPCA for "), 
     crayon::yellow(atlas_name), 
@@ -647,7 +666,7 @@ process_atlas <- function(atlas_path,
   
   # # 임시 파일을 정리 (중간에 생성된 임시 파일들 삭제)
   # clean_temp_files(train_folds_paths, atlas_dir)
-
+  return(final_results)
 }
 
 
@@ -661,7 +680,8 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
                                               export_each_roi = TRUE, 
                                               export_each_fold = TRUE, 
                                               export_total_train = TRUE,
-                                              export_test = TRUE){
+                                              export_test = TRUE,
+                                              return_total = TRUE){
   dir.create(output_path, showWarnings = FALSE, recursive = TRUE)
   
   # atlas 폴더만 선택해서 읽어오기
@@ -676,9 +696,11 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
                   export_each_fold,
                   export_total_train,
                   export_test)
-  })
+  }) %>% setNames(basename(all_atlas_paths))
   
-  invisible(NULL)
+  if(return_total){
+    return(results_list)
+  }
 }
 
 
