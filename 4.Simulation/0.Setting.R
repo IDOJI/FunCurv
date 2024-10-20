@@ -53,7 +53,15 @@ total_function = function(){
                                                   seed)
   
   
-  # 🟨 Sampling data ===============================================================================================================================
+  # 🟨 Sampling data =======================================================================================================================================
+  
+  
+  
+  
+  
+  # 🟨 generate coefficient function ===============================================================================================================================
+  
+  
   
   
   
@@ -161,27 +169,6 @@ create_train_test_folds <- function(subjects_list,
   ))
 }
 
-
-# 🟥 logistic with Group penalty =========================================================================================================
-# Load the Birthwt dataset from the package
-data(Birthwt)
-
-# Prepare the data for logistic regression
-X <- Birthwt$X    # Predictor variables
-y <- Birthwt$low  # Binary response variable (low birth weight)
-group <- Birthwt$group  # Grouping for the predictors
-
-# Fit the logistic regression model with group Lasso penalty
-fit <- grpreg(X, y, group, penalty = "grLasso", family = "binomial")
-
-# Plot the coefficient paths
-plot(fit)
-
-# Select the best model using BIC
-best_fit <- select(fit, criterion = "BIC")
-
-# Extract the coefficients of the selected model
-coef(best_fit)
 
 
 
