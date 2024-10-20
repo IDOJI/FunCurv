@@ -62,7 +62,7 @@ library(crayon)
 library(tictoc)
 ## 🟨 선택 ROI개수 벡터 ==========================================================================
 the_number_of_repeated_roi = function(df){
-  roi_numbers <- as.numeric(sub("ROI_(\\d+)_FPC_\\d+", "\\1", colnames(total_test_fpca)))
+  roi_numbers <- as.numeric(sub("ROI_(\\d+)_FPC_\\d+", "\\1", colnames(df)))
   return(roi_numbers)
 }
 
@@ -547,7 +547,7 @@ process_fold <- function(k, train_folds_paths, validation_folds_paths, atlas_dir
     `rownames<-`(colnames(validation_smoothing_results$ROI_001$fdSmooth_obj$y))
   
   
-  combined_fold_result[[repeated_roi]] = the_number_of_repeated_roi(combined_fold_result[[paste0(fold_name, "_Train_FPC_Scores")]])
+  combined_fold_result[["repeated_roi"]] = the_number_of_repeated_roi(combined_fold_result[[paste0(fold_name, "_Train_FPC_Scores")]])
   
   
   
