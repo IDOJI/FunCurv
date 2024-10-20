@@ -1,8 +1,7 @@
-# 🟥 Load Functions & Packages ##########################################################################
+# Load Functions & Packages ##########################################################################
 # rm(list = ls())
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 
-## 🟨Install and loading Packages ================================
 install_packages = function(packages, load=TRUE) {
   # load : load the packages after installation?
   for(pkg in packages) {
@@ -31,186 +30,169 @@ List.list[[10]] = others = c("beepr")
 packages_to_install_and_load = unlist(List.list)
 install_packages(packages_to_install_and_load)
 
-## 🟧dplyr =======================================================
 filter = dplyr::filter
 select = dplyr::select
 
 
 
 
-# 🟥 Define smoothing functions =========================================================================================================
-# 필요한 패키지 로드
-library(dplyr)
-library(caret)
-library(fda)
-library(purrr)
-library(crayon)
 
-# 1) 데이터 샘플링 함수
-bootstrap_sample <- function(data, sample_size = NULL) {
-  if (is.null(sample_size)) {
-    sample_size <- nrow(data)
+
+# 🟪 Total function =========================================================================================================================
+subjects_list = read.csv("/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/1.Subjects List/9.MT1-EPI-Merged-Subjects-List.csv")
+
+
+total_function = function(){
+  # 🟨 Sampling subjects ===============================================================================================================================
+  sampled_subjects_list = create_train_test_folds(subjects_list,
+                                                  diagnosis_ratio,
+                                                  diagnosis_groups,
+                                                  test_split_ratio,
+                                                  n_samples,
+                                                  n_folds,
+                                                  seed)
+  
+  
+  # 🟨 Sampling data ===============================================================================================================================
+  
+  
+  
+}
+
+
+
+
+
+
+
+
+# 🟩 Sampling =========================================================================================================
+create_train_test_folds <- function(subjects_list, 
+                                    diagnosis_ratio = c(0.3, 0.4, 0.3), 
+                                    diagnosis_groups = c("CN", "MCI", "Dementia"), 
+                                    test_split_ratio = 0.3, 
+                                    n_samples = 1000, 
+                                    n_folds = 5, 
+                                    seed = 1234){
+  # Set seed for reproducibility
+  set.seed(seed)
+  
+  # Subset SB only
+  subjects_list <- subjects_list %>%
+    dplyr::filter(EPI___BAND.TYPE == "SB")
+  
+  # Diagnosis ratio and group matching
+  diagnosis_levels <- unique(subjects_list$DIAGNOSIS_FINAL)
+  
+  # Check if the sum of ratios equals 1
+  if (sum(diagnosis_ratio) != 1) {
+    stop("The sum of diagnosis_ratio must equal 1")
   }
   
-  data %>%
-    group_by(DIAGNOSIS_FINAL) %>%
-    sample_frac(size = sample_size / nrow(data), replace = TRUE) %>%
-    ungroup()
-}
-
-# 2) 데이터 분할 함수 (Train/Test)
-split_data <- function(data, train_ratio = 0.7) {
-  set.seed(123)  # 재현성을 위해 시드 설정
-  train_index <- createDataPartition(data$DIAGNOSIS_FINAL, p = train_ratio, list = FALSE)
-  train_data <- data[train_index, ]
-  test_data <- data[-train_index, ]
-  list(train = train_data, test = test_data)
-}
-
-# 3) K-Fold 분할 함수
-create_folds <- function(train_data, k = 5) {
-  set.seed(123)
-  folds <- createFolds(train_data$DIAGNOSIS_FINAL, k = k, returnTrain = TRUE)
-  fold_list <- lapply(1:k, function(i) {
-    validation_index <- setdiff(1:nrow(train_data), folds[[i]])
-    list(
-      train = train_data[folds[[i]], ],
-      validation = train_data[validation_index, ]
-    )
-  })
-  names(fold_list) <- paste0("Fold_", 1:k)
-  fold_list
-}
-
-# 4) Smoothing 및 FPCA 함수
-perform_smoothing_fpca <- function(train_data, validation_data, domain, n_order = 4, n_breaks = NULL, lambda = 1e-4, nharm = 5) {
-  # Smoothing
-  basis <- create.bspline.basis(rangeval = c(min(domain), max(domain)), norder = n_order, nbasis = ifelse(is.null(n_breaks), length(domain), n_breaks))
-  fdPar_obj <- fdPar(basis, Lfdobj = int2Lfd(2), lambda = lambda)
+  # Check if the provided diagnosis_groups match the levels in DIAGNOSIS_FINAL
+  if (length(diagnosis_ratio) != length(diagnosis_groups)) {
+    stop("The length of diagnosis_ratio must match the number of diagnosis_groups")
+  }
   
-  # Train 데이터 smoothing
-  train_fd <- smooth.basis(argvals = domain, y = t(train_data), fdParobj = fdPar_obj)$fd
+  # Check if all diagnosis_groups exist in the data
+  if (!all(diagnosis_groups %in% diagnosis_levels)) {
+    missing_groups <- diagnosis_groups[!diagnosis_groups %in% diagnosis_levels]
+    stop(paste("The following diagnosis_groups are not found in DIAGNOSIS_FINAL:", 
+               paste(missing_groups, collapse = ", "), 
+               "\nPlease use one or more of the valid groups:", 
+               paste(diagnosis_levels, collapse = ", ")))
+  }
   
-  # FPCA
-  fpca_result <- pca.fd(train_fd, nharm = nharm, centerfns = TRUE)
+  # Create a named vector of ratios for easy matching
+  diagnosis_ratio_named <- setNames(diagnosis_ratio, diagnosis_groups)
   
-  # Validation 데이터 smoothing
-  validation_fd <- smooth.basis(argvals = domain, y = t(validation_data), fdParobj = fdPar_obj)$fd
+  # Calculate the number of samples per group based on the total number of samples
+  sample_sizes <- round(n_samples * diagnosis_ratio_named)
   
-  # Validation 데이터에서 FPC score 계산
-  validation_scores <- inprod(validation_fd, fpca_result$harmonics)
+  # Initialize lists to store test and train data
+  train_data_list <- list()
+  test_data_list <- list()
   
-  list(
-    fpca_result = fpca_result,
-    train_scores = fpca_result$scores,
-    validation_scores = validation_scores
-  )
-}
-
-# 5) Functional Logistic Regression 및 성능 평가 함수
-evaluate_model <- function(train_scores, train_labels, validation_scores, validation_labels) {
-  # 모델 적합
-  model <- glm(train_labels ~ ., data = as.data.frame(train_scores), family = binomial)
-  
-  # 예측
-  predictions <- predict(model, newdata = as.data.frame(validation_scores), type = "response")
-  predicted_classes <- ifelse(predictions > 0.5, 1, 0)
-  
-  # 성능 평가
-  confusion <- confusionMatrix(as.factor(predicted_classes), as.factor(validation_labels))
-  performance <- list(
-    accuracy = confusion$overall['Accuracy'],
-    kappa = confusion$overall['Kappa']
-  )
-  
-  performance
-}
-
-# 6) 하이퍼파라미터 튜닝 및 최종 모델 평가 함수
-tune_and_evaluate <- function(fold_results, test_scores, test_labels) {
-  # 각 fold의 성능 수집
-  performances <- map(fold_results, "performance")
-  
-  # 가장 성능이 좋은 하이퍼파라미터 선택 (예: accuracy 기준)
-  best_fold <- which.max(map_dbl(performances, "accuracy"))
-  
-  # 최적 모델로 테스트 데이터 평가
-  best_model <- fold_results[[best_fold]]$model
-  predictions <- predict(best_model, newdata = as.data.frame(test_scores), type = "response")
-  predicted_classes <- ifelse(predictions > 0.5, 1, 0)
-  
-  # 최종 성능 평가
-  confusion <- confusionMatrix(as.factor(predicted_classes), as.factor(test_labels))
-  final_performance <- list(
-    accuracy = confusion$overall['Accuracy'],
-    kappa = confusion$overall['Kappa']
-  )
-  
-  final_performance
-}
-
-
-
-# 전체 프로세스를 실행하는 메인 함수
-run_analysis <- function(subject_data, domain, sample_size = NULL, train_ratio = 0.7, k_folds = 5, n_order = 4, n_breaks = NULL, lambda = 1e-4, nharm = 5) {
-  # 1) 부트스트랩 샘플링
-  sampled_data <- bootstrap_sample(subject_data, sample_size)
-  
-  # 2) Train/Test 분할
-  split <- split_data(sampled_data, train_ratio)
-  train_data <- split$train
-  test_data <- split$test
-  
-  # 레이블 추출
-  test_labels <- test_data$DIAGNOSIS_FINAL
-  
-  # 3) K-Fold 생성
-  folds <- create_folds(train_data, k = k_folds)
-  
-  # 4) 각 Fold에 대해 Smoothing 및 FPCA 수행
-  fold_results <- lapply(folds, function(fold) {
-    train_fold <- fold$train
-    validation_fold <- fold$validation
+  # Split the data into test and train sets according to the split ratio
+  for (group in diagnosis_groups) {
+    # group = diagnosis_groups[1]
+    group_data <- subjects_list %>% dplyr::filter(DIAGNOSIS_FINAL == group)
     
-    # 데이터 준비 (예시로 필요한 변수만 추출)
-    train_matrix <- as.matrix(train_fold[ , -which(names(train_fold) %in% c("RID", "DIAGNOSIS_FINAL"))])
-    validation_matrix <- as.matrix(validation_fold[ , -which(names(validation_fold) %in% c("RID", "DIAGNOSIS_FINAL"))])
+    # Calculate test and train sizes
+    test_size <- round(sample_sizes[group] * test_split_ratio)
+    train_size <- sample_sizes[group] - test_size
     
-    # Smoothing 및 FPCA 수행
-    fpca <- perform_smoothing_fpca(train_matrix, validation_matrix, domain, n_order, n_breaks, lambda, nharm)
+    # Sample test and train data
+    test_data <- group_data %>% dplyr::sample_n(size = test_size, replace = TRUE)
+    train_data <- group_data %>% dplyr::sample_n(size = train_size, replace = TRUE)
     
-    # 5) 모델 적합 및 성능 평가
-    performance <- evaluate_model(fpca$train_scores, train_fold$DIAGNOSIS_FINAL, fpca$validation_scores, validation_fold$DIAGNOSIS_FINAL)
     
-    list(
-      model = glm(train_fold$DIAGNOSIS_FINAL ~ ., data = as.data.frame(fpca$train_scores), family = binomial),
-      performance = performance
-    )
-  })
+    # Store the test and train data
+    test_data_list[[group]] <- test_data
+    train_data_list[[group]] <- train_data
+  }
   
-  # 7) 전체 Train 데이터로 FPCA 수행
-  total_train_matrix <- as.matrix(train_data[ , -which(names(train_data) %in% c("RID", "DIAGNOSIS_FINAL"))])
-  test_matrix <- as.matrix(test_data[ , -which(names(test_data) %in% c("RID", "DIAGNOSIS_FINAL"))])
+  # Combine the test and train data from each group
+  test_data <- dplyr::bind_rows(test_data_list)
+  train_data <- dplyr::bind_rows(train_data_list)
   
-  total_fpca <- perform_smoothing_fpca(total_train_matrix, test_matrix, domain, n_order, n_breaks, lambda, nharm)
   
-  # 6) 최적 하이퍼파라미터로 테스트 데이터 평가
-  final_performance <- tune_and_evaluate(fold_results, total_fpca$validation_scores, test_labels)
+  # Split the train data into `n_folds` for cross-validation
+  fold_data <- train_data %>%
+    dplyr::group_by(DIAGNOSIS_FINAL) %>%
+    dplyr::mutate(fold = sample(rep(1:n_folds, length.out = n()))) %>%
+    dplyr::ungroup()
   
-  final_performance
+  # Create a list of fold sets (train and validation)
+  folds <- list()
+  for (i in 1:n_folds) {
+    validation <- fold_data %>% dplyr::filter(fold == i)
+    train <- fold_data %>% dplyr::filter(fold != i)
+    
+    folds[[paste0("fold_", i)]] <- list(train = train, validation = validation)
+  }
+  
+  
+  # Return the final list with test data, full train data, and the folds
+  return(list(
+    test = test_data,
+    full_train = train_data,
+    folds = folds
+  ))
 }
 
-# 함수 실행 예시
-# domain은 관측된 데이터의 도메인 (예: 시간 또는 공간 좌표)
-# subject_data는 RID, DIAGNOSIS_FINAL 및 관측 데이터가 포함된 데이터프레임
 
-# 예시 데이터 로드 (사용자의 실제 데이터로 대체해야 함)
-# subject_data <- read.csv("your_subject_data.csv")
-# domain <- seq(0, 1, length.out = ncol(subject_data) - 2)
+# 🟥 logistic with Group penalty =========================================================================================================
+# Load the Birthwt dataset from the package
+data(Birthwt)
 
-# 결과 실행
-# result <- run_analysis(subject_data, domain)
-# print(result)
+# Prepare the data for logistic regression
+X <- Birthwt$X    # Predictor variables
+y <- Birthwt$low  # Binary response variable (low birth weight)
+group <- Birthwt$group  # Grouping for the predictors
+
+# Fit the logistic regression model with group Lasso penalty
+fit <- grpreg(X, y, group, penalty = "grLasso", family = "binomial")
+
+# Plot the coefficient paths
+plot(fit)
+
+# Select the best model using BIC
+best_fit <- select(fit, criterion = "BIC")
+
+# Extract the coefficients of the selected model
+coef(best_fit)
+
+
+
+
+
+# 🟥 proportional logistic with group penalty =========================================================================================================
+
+
+
+
+
 
 
 

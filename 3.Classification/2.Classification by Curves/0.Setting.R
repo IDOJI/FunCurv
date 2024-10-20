@@ -38,109 +38,116 @@ select = dplyr::select
 
 
 
-# 🟥 Define smoothing functions =========================================================================================================
-library(fda)
-library(crayon)
-library(tictoc)
-## 🟨 메시지 출력 함수 ==========================================================================
-print_message <- function(message, color_func = crayon::green) {
-  cat(color_func(message), "\n")
+
+
+# 🟪 Total function =========================================================================================================================
+subjects_list = read.csv("/Users/Ido/Documents/✴️DataAnalysis/FunCurv/1.Data Indexing/1.Subjects List/9.MT1-EPI-Merged-Subjects-List.csv")
+
+
+
+total_function = function(){
+  # 🟨 Sampling subjects ===============================================================================================================================
+  sampled_subjects_list = sampling_subjects(subjects_list,diagnosis_ratio, diagnosis_groups, n_samples, seed)
+  
+  
+  # 🟨 Sampling data ===============================================================================================================================
+  
+  
+  
 }
 
-## 🟨 각 ROI에 대해 FPCA 수행 및 저장하는 함수 ==========================================================================
-process_single_roi <- function(roi_obj, roi_name, output_dir, export.each.roi, initial_nharm, portion) {
+
+
+
+
+
+
+
+# 🟩 Sampling =========================================================================================================
+sampling_subjects <- function(subjects_list, 
+                              diagnosis_ratio = c(0.1, 0.5, 0.4), 
+                              diagnosis_groups = c("CN", "MCI", "Dementia"), 
+                              n_samples = 100, 
+                              seed = 1234) {
+  # Set seed for reproducibility
+  set.seed(seed)
   
-  # 🟩 portion 값 검사: 0과 1 사이에 있는지 확인
-  if (portion <= 0 || portion >= 1) {
-    stop(
-      crayon::red(sprintf(
-        "Error: 'portion' must be a value between 0 and 1. Given: %.2f", portion
-      ))
-    )
+  # 🟨 Subset SB only =============================================================================
+  subjects_list <- subjects_list %>%
+    dplyr::filter(EPI___BAND.TYPE == "SB")
+  
+  # 🟨 Diagnosis ratio and group matching =============================================================================
+  diagnosis_levels <- unique(subjects_list$DIAGNOSIS_FINAL)
+  
+  # Check if the sum of ratios equals 1
+  if (sum(diagnosis_ratio) != 1) {
+    stop("The sum of diagnosis_ratio must equal 1")
   }
   
-  # 각 ROI의 결과 저장 경로 설정
-  output_file <- file.path(output_dir, paste0(roi_name, ".rds"))
-  
-  # 이미 파일이 존재하면 계산을 건너뛰기
-  if (file.exists(output_file) && export.each.roi) {
-    print_message(sprintf("Skipping %s: File already exists.", roi_name), crayon::yellow)
-    return(readRDS(output_file))
+  # Check if the provided diagnosis_groups match the levels in DIAGNOSIS_FINAL
+  if (length(diagnosis_ratio) != length(diagnosis_groups)) {
+    stop("The length of diagnosis_ratio must match the number of diagnosis_groups")
   }
   
-  # FPCA 수행
-  fd_obj <- roi_obj$fdSmooth_obj$fd
-  fpca_results <- pca.fd(fd_obj, nharm = initial_nharm, centerfns = TRUE)
-  
-  # 누적 분산 비율 계산 및 필요한 harmonic 개수 선택
-  cumulative_variance <- cumsum(fpca_results$varprop)
-  selected_harm <- which(cumulative_variance >= portion)[1]
-  
-  # 메시지 출력
-  print_message(
-    sprintf("Selected %d harmonics to explain at least %.2f%% of the variance.", 
-            selected_harm, portion * 100),
-    crayon::green
-  )
-  
-  # 필요한 harmonic과 score 추출
-  selected_harmonics <- fpca_results$harmonics[1:selected_harm]
-  selected_scores <- as.data.frame(fpca_results$scores[, 1:selected_harm])
-  colnames(selected_scores) <- paste0("FPC_", seq_len(ncol(selected_scores)))
-  
-  # 결과를 리스트로 저장
-  result <- list(
-    harmonics = selected_harmonics,
-    scores = selected_scores,
-    var_explained = cumulative_variance[selected_harm]
-  )
-  
-  # 결과를 RDS 파일로 저장
-  if (export.each.roi) {
-    saveRDS(result, output_file)
-    print_message(sprintf("Saved FPCA results for %s to %s", roi_name, output_file))
+  # Check if all diagnosis_groups exist in the data
+  if (!all(diagnosis_groups %in% diagnosis_levels)) {
+    missing_groups <- diagnosis_groups[!diagnosis_groups %in% diagnosis_levels]
+    stop(paste("The following diagnosis_groups are not found in DIAGNOSIS_FINAL:", 
+               paste(missing_groups, collapse = ", "), 
+               "\nPlease use one or more of the valid groups:", 
+               paste(diagnosis_levels, collapse = ", ")))
   }
   
-  return(result)
+  # Create a named vector of ratios for easy matching
+  diagnosis_ratio_named <- setNames(diagnosis_ratio, diagnosis_groups)
+  
+  # Calculate the number of samples per group based on the total number of samples
+  sample_sizes <- round(n_samples * diagnosis_ratio_named)
+  
+  # Initialize an empty list to store sampled data
+  sampled_data_list <- list()
+  
+  # Loop over each diagnosis group and sample accordingly
+  for (group in diagnosis_groups) {
+    group_data <- subjects_list %>% dplyr::filter(DIAGNOSIS_FINAL == group)
+    sampled_data_list[[group]] <- group_data %>% 
+      dplyr::sample_n(size = sample_sizes[group], replace = TRUE)
+  }
+  
+  
+  return(sampled_data_list)
 }
-## 🟨 모든 ROI에 대해 FPCA 수행 및 결과 저장하는 함수 ==========================================================================
-perform_fpca_for_all <- function(path_smoothing_results, initial_nharm = 50, portion = 0.9, output_base_dir, export.each.roi = FALSE) {
-  smoothing_results <- readRDS(path_smoothing_results)
-  base_folder_name <- basename(dirname(path_smoothing_results))
-  output_dir <- file.path(output_base_dir, base_folder_name)
-  
-  if(is.null(names(smoothing_results))){
-    names(smoothing_results) = paste0("ROI_", 1:length(smoothing_results))  
-  }
-  
-  
-  
-  if (!dir.exists(output_dir)) {
-    dir.create(output_dir, recursive = TRUE)
-    print_message(sprintf("Created directory: %s", output_dir), crayon::green)
-  }
-  
-  tictoc::tic("FPCA computation completed")
-  all_results <- lapply(names(smoothing_results), function(roi_name) {
-    # roi_name = names(smoothing_results)[1]
-    roi_obj <- smoothing_results[[roi_name]]
-    process_single_roi(roi_obj, roi_name, output_dir, export.each.roi, initial_nharm, portion)
-  })%>% setNames(paste0("FPCA_", names(smoothing_results)))
-  tictoc::toc()
-  
-  combined_pc_scores <- do.call(cbind, lapply(names(all_results), function(ith_ROI) {
-    names(all_results[[ith_ROI]]$scores) <- paste0(ith_ROI, "_FPC_", seq_len(ncol(all_results[[ith_ROI]]$scores)))
-    return(all_results[[ith_ROI]]$scores)
-  }))
-  
-  final_output_file <- file.path(output_dir, paste0(base_folder_name, "_fpca_all_results.rds"))
-  combined_pc_scores_file <- file.path(output_dir, paste0(base_folder_name, "_combined_pc_scores.rds"))
-  
-  saveRDS(all_results, final_output_file)
-  saveRDS(combined_pc_scores, combined_pc_scores_file)
-  
-  print_message(sprintf("Saved combined FPCA results to %s", final_output_file), crayon::green)
-}
+
+
+# 🟥 logistic with Group penalty =========================================================================================================
+# Load the Birthwt dataset from the package
+data(Birthwt)
+
+# Prepare the data for logistic regression
+X <- Birthwt$X    # Predictor variables
+y <- Birthwt$low  # Binary response variable (low birth weight)
+group <- Birthwt$group  # Grouping for the predictors
+
+# Fit the logistic regression model with group Lasso penalty
+fit <- grpreg(X, y, group, penalty = "grLasso", family = "binomial")
+
+# Plot the coefficient paths
+plot(fit)
+
+# Select the best model using BIC
+best_fit <- select(fit, criterion = "BIC")
+
+# Extract the coefficients of the selected model
+coef(best_fit)
+
+
+
+
+
+# 🟥 proportional logistic with group penalty =========================================================================================================
+
+
+
 
 
 
