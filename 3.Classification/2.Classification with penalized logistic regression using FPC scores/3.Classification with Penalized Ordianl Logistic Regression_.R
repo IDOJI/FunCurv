@@ -1,3 +1,101 @@
+# 🟨 FPCA + Demographics ===========================================================================================
+
+
+
+# 🟨 FPCA만 사용한 경우 ===========================================================================================
+
+path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/FunImgARCWSF_FC/AAL3"
+
+
+path_fold_data = list.files(path_data, pattern = "fold", full.names = T)
+path_full_train_data = list.files(path_data, pattern = "train", full.names = T)
+
+
+# Fitting model for each 
+
+for(path_ith_fold in path_full_train_data){
+  # path_ith_fold = path_full_train_data[1]
+  ith_fold = readRDS(path_ith_fold)
+  
+  combined_data = lapply(ith_fold, function(x){
+    # x = ith_fold[[1]]
+  })
+  
+  # 그룹 번호 매기기
+  
+  # ROI 추출
+  
+  # 전체 리스트에서 diagnosis 추출
+  
+  # model fitting (alpha + lambda) : AD:CN / AD:MCI / MCI:CN
+  
+  # validation으로 모델 performance 계산
+  
+  
+}
+
+# performance 결과 averaging
+
+
+# 최종 결과 내보내기
+
+# 성능 최적 하이퍼파라미터 선택
+
+# test 데이터로 최종 성능 추출
+
+
+
+
+
+
+
+
+
+
+# 데이터 준비
+data(Birthwt)
+X <- Birthwt$X    # 예측 변수
+y <- Birthwt$low  # 이진 반응 변수
+group <- Birthwt$group  # 그룹 정보
+
+# 함수 호출
+results <- fit_multiple_penalties(
+  X = X,
+  y = y,
+  group = group,
+  family = "binomial",
+  alpha = 0.8,
+  save_plots = TRUE,
+  plot_dir = "my_plots",
+  plot_names = c("grLasso" = "Lasso_Plot", "grMCP" = "MCP_Plot", "grSCAD" = "SCAD_Plot"),
+  save_results = TRUE,
+  results_filename = "model_results.rds"
+)
+
+
+
+# 함수 사용 예시
+data(Birthwt)
+X <- Birthwt$X    # Predictor variables
+y <- Birthwt$low  # Binary response variable (low birth weight)
+group <- Birthwt$group  # Grouping for the predictors
+
+# 함수 호출
+results <- fit_multiple_penalties(X, 
+                                  y, 
+                                  group, 
+                                  family = "binomial", 
+                                  save_plots = TRUE, 
+                                  plot_dir = "my_plots")
+
+
+
+
+
+
+
+
+
 ###############################################################################
 # 1.1.Loading packages
 ###############################################################################
@@ -10,66 +108,6 @@ list.files(paste0(which_OS, "/Dropbox/Github/Rpkgs/refineR/R"), full.names = T) 
 list.files(paste0(which_OS, "/Dropbox/Github/Rpkgs/StatsR/R"), full.names = T) %>% walk(source)
 
 
-
-
-
-
-
-#===============================================================================
-# Loading Data
-#===============================================================================
-Clipboard_to_path()
-# Mac
-path_Data = "/Users/Ido/Library/CloudStorage/Dropbox/Github/Papers/Papers___Wrting/Papers___Exploring Resting-State fMRI Signals in Alzheimer's Disease Using Functional Data Analysis/Data/4.FPCA/5.PC Scores with Diagnosis___0.9"
-# Windows
-path_Data = "C:/Users/lleii/Dropbox/Github/5.PC Scores with Diagnosis___0.9"
-path_Data_List = list.files(path_Data, full.names=T)
-Data = lapply(path_Data_List, readRDS)
-
-Data_List = sapply(list.files(path_Data), function(y){str_split(y, "\\.rds")[[1]][1]}) %>% unname
-names(Data) = Data_List
-
-
-
-
-
-
-
-
-
-
-#===============================================================================
-# Splitting Dataset
-#===============================================================================
-Data_Splitted = lapply(Data, function(ith_Data){
-  ith_Data_Splitted = Split.Dataset(ith_Data$PC.Scores, y = ith_Data$Diagnosis, train_percentage = 0.8)
-  ith_Data_New = list(Train_Set = ith_Data_Splitted[[1]], Test_Set = ith_Data_Splitted[[2]], Coef_Groups_Ind = ith_Data[[3]])
-  return(ith_Data_New)
-})
-names(Data_Splitted) = Data_List
-
-
-
-
-
-
-
-#===============================================================================
-# [Classification] glm : Multinomial logistic with penalty
-#===============================================================================
-# Assume X is your feature matrix and Y is your response vector
-# Also, assume that Y is a factor with levels corresponding to your classes
-
-# Fit the model
-fit <- glmnet(X, Y, family = "multinomial", alpha = 1)
-
-# alpha is the elastic net mixing parameter (0 for ridge regression, 1 for lasso)
-# You can adjust this parameter based on your needs
-
-# To make predictions:
-preds <- predict(fit, newx = X_new, type = "class")
-
-# X_new is the new data for which you want to make predictions
 
 
 
