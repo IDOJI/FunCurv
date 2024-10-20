@@ -420,7 +420,7 @@ perform_fpca_for_all_roi <- function(path_smoothing_results,
   
   # combined
   combined_results = list(Combined_FPCA_ROI = all_results, FPC_Scores = combined_pc_scores)
-  combined_results[[repeated_roi]] = the_number_of_repeated_roi(combined_results[[combined_pc_scores]])
+  combined_results[["repeated_roi"]] = the_number_of_repeated_roi(combined_results[["FPC_Scores"]])
   
   
   if(export_total_train){
