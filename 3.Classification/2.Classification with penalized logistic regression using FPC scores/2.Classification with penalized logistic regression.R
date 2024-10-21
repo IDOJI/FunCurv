@@ -15,50 +15,78 @@
 
 ## 🟩 Group penalty ================================================================================================
 path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/FunImgARCWSF_FC/AAL3"
+path_subjects_list = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/1.Subjects List/9.MT1-EPI-Merged-Subjects-List.csv"
+
+# subjects list
+subjects_list = read.csv(path_subjects_list)
 
 
+# path data list
 path_fold_data = list.files(path_data, pattern = "fold", full.names = T)
+names_fold_data = get_file_names_without_extension(path_data, "fold")
 path_full_train_data = list.files(path_data, pattern = "train", full.names = T)
 path_test_data = list.files(path_data, pattern = "test", full.names = T)
 
-# Fitting model for each 
 
-for(path_ith_fold in path_full_train_data){
-  # path_ith_fold = path_full_train_data[1]
-  ith_fold = readRDS(path_ith_fold)
-  ith_fold$FPCA_ROI$ROI_001$selected_scores
-  tmp = readRDS("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/FunImgARCWSF_zALFF/AAL3/fold_1_result.rds")
+# Load Data
+fold_data = lapply(path_fold_data, readRDS) %>% setNames(names_fold_data)
+train_data = readRDS(path_full_train_data)
+test_data = readRDS(path_test_data)
+
+
+# input composition
+X_folds <- list()
+y_folds <- list()
+group_folds <- list()
+
+for(i in seq_along(fold_data)){
   
+  ith_fold = fold_data[[i]]
   
-  combined_data = lapply(ith_fold, function(x){
-    # x = ith_fold[[1]]
-  })
+  ith_fold_train_FPC = ith_fold$fold_1_Train_FPC_Scores
+  ith_fold_validation_FPC = ith_fold$fold_1_Validation_FPC_Scores
   
-  # 그룹 번호 매기기
+  ith_fold_train_subjects = subjects_list %>% 
+    filter(paste0("RID_", RID) %in% rownames(ith_fold_train_FPC))
+  ith_fold_validation_subjects = subjects_list %>% 
+    filter(paste0("RID_", RID) %in% rownames(ith_fold_validation_FPC))
   
-  # ROI 추출
-  
-  # 전체 리스트에서 diagnosis 추출
-  
-  # model fitting (alpha + lambda) : AD:CN / AD:MCI / MCI:CN
-  
-  # validation으로 모델 performance 계산
-  
-  
+  X_folds[[i]] = list(train = ith_fold_train_FPC, val = ith_fold_validation_FPC)
+  y_folds[[i]] = list(train = ith_fold_train_subjects$DIAGNOSIS_FINAL)
 }
 
-# performance 결과 averaging
 
 
-# 최종 결과 내보내기
+# Fold 데이터 생성 (Train/Validation 데이터 분할)
+folds <- 5
+for (i in 1:folds) {
+  # i=1
+  idx <- sample(1:n, size = n/folds)
+  X_folds[[i]] <- list(train = X[-idx, ], val = X[idx, ])
+  y_folds[[i]] <- list(train = y[-idx], val = y[idx])
+  group_folds[[i]] <- group
+}
 
-# 성능 최적 하이퍼파라미터 선택
 
-# test 데이터로 최종 성능 추출
+# Hyperparameter 튜닝 함수 실행
+results <- fit_hyperparameters_classification(
+  X_folds = X_folds,
+  y_folds = y_folds,
+  group_folds = group_folds,
+  family = "binomial",
+  penalties = c("grLasso", "grMCP"),
+  alphas = c(0.5, 1),
+  save_plots = TRUE,
+  plot_dir = "hyperparam_performance_plots",  # 플롯을 저장할 디렉토리
+  save_results = TRUE,
+  results_filename = "hyperparam_tuning_results.rds"  # 결과를 저장할 RDS 파일명
+)
 
+# 저장된 RDS 파일 불러오기
+loaded_results <- readRDS("hyperparam_tuning_results.rds")
 
-
-
+# 결과 확인
+print(loaded_results)
 
 
 
