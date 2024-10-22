@@ -492,6 +492,12 @@ apply_by_target_group = function(target_group,
                                  path_export,
                                  atlas_name){
   
+  
+  path_test_train_subjects_list = path_test_train_subjects_list %>% adjust_path
+  path_curves_by_distance = path_curves_by_distance %>% adjust_path
+  path_export = path_export %>% adjust_path
+  
+  
   path_measure_folders_list = list.files(path_curves_by_distance, full.names = T)
   
   results = lapply(path_measure_folders_list, function(path_ith_measure){

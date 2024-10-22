@@ -685,8 +685,8 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
   dir.create(output_path, showWarnings = FALSE, recursive = TRUE)
   
   # atlas 폴더만 선택해서 읽어오기
-  all_atlas_paths <- list.dirs(input_paths, full.names = TRUE, recursive = FALSE)
-  
+  all_atlas_paths <- list.dirs(input_paths %>% set_output_path, full.names = TRUE, recursive = FALSE)
+  output_path = output_path %>% set_output_path
   
   # 아틀라스별 로 FPCA 수행
   results_list <- lapply(all_atlas_paths, function(atlas_path) {
