@@ -290,8 +290,6 @@ smoothing_multiple_ROIs <- function(path_ith_FC,
   
   
   
-  
-  
   ### 🟩 이미 저장된 전체 결과가 있는지 확인 ====================================================================
   # export_path에 "combine"과 "results" 둘 다 포함하는 .rds 파일이 존재하는지 확인
   rds_files <- list.files(path_export, pattern = "\\.rds$", full.names = TRUE)
@@ -301,11 +299,15 @@ smoothing_multiple_ROIs <- function(path_ith_FC,
   
   # 파일 존재 & 파일 용량 > 0 & overwrite = T가 아닌 경우
   if (length(combined_results_file) > 0 && file.info(combined_results_file[1])$size > 0 && !overwrite) {
+    
     cat(crayon::blue("[INFO] Combined smoothed results already exist.\n"))
     invisible(return(NULL))
+    
   } else if (length(combined_results_file) > 0 && overwrite) {
+    
     lapply(combined_results_file, file.remove)  # 여러 파일을 삭제할 수 있도록 수정
     cat(crayon::yellow("[INFO] Overwrite is TRUE. Deleted existing combined smoothed results.\n"))
+    
   }     
   
   
@@ -317,13 +319,15 @@ smoothing_multiple_ROIs <- function(path_ith_FC,
     X %>% select(all_of(c(names(X)[1:2], target_RID)))
   }) %>% setNames(names(FC))
   
+  
+  
   ### 🟩 Smoothing each ROI ==========================================================================================
   results_file <- file.path(path_export, paste0("combined_smoothing_results_", atlas_name, ".rds"))
   
   if (!file.exists(results_file)) {
-    
+    # FC_filtered = FC
     smoothing_results <- lapply(seq_along(FC_filtered), function(i) {
-      
+      # i=1      
       roi_name <- names(FC_filtered)[i]
       
       cat(crayon::cyan("[INFO] Processing ROI:"), crayon::bold(roi_name), "\n")
@@ -343,6 +347,8 @@ smoothing_multiple_ROIs <- function(path_ith_FC,
                                                        generate_plots = i <= max_plots)
       
       return(ith_smoothing_result)    
+      
+      
       
     }) %>% setNames(names(FC))
     
@@ -371,19 +377,26 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
   
   # filtering_words에 지정된 문자열이 포함된 파일만 필터링
   if (length(filtering_words) > 0) {
+    
     filtered_FC_file_list <- all_FC_file_list[sapply(all_FC_file_list, function(file) {
       all(sapply(filtering_words, function(word) grepl(word, file)))
     })]
+    
   } else {
+    
     filtered_FC_file_list <- all_FC_file_list
+    
   }
+  
   
   # 각 atlas 파일에 대해 처리
   for (path_ith_FC in filtered_FC_file_list) {
     # path_ith_FC = filtered_FC_file_list[1]
     
+    
     # 🟢 Atlas별 폴더 생성 ====================================================================
     atlas_name = tools::file_path_sans_ext(basename(path_ith_FC))
+    
     new_fold = paste(target_group, 
                      tools::file_path_sans_ext(basename(path_all_FC)),
                      sep = "___")
@@ -402,6 +415,7 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
     
     # 🟢 getting option for the atlas ====================================================================
     final_options = c(common_options, options_for_each_atlas_list)
+    
     
     
     
@@ -477,9 +491,12 @@ apply_by_target_group = function(target_group,
                                  path_curves_by_distance,
                                  path_export,
                                  atlas_name){
+  
   path_measure_folders_list = list.files(path_curves_by_distance, full.names = T)
+  
   results = lapply(path_measure_folders_list, function(path_ith_measure){
     # path_ith_measure = list.files(path_curves_by_distance, full.names = T)[4]
+    
     path_target_test_train_list = file.path(path_test_train_subjects_list, target_group)
     
     apply_smoothing_to_all_atlas_files(path_all_FC = path_ith_measure,
