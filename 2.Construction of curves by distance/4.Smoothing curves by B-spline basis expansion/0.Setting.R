@@ -2,7 +2,6 @@
 # rm(list = ls())
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 
-## 🟨Install and loading Packages ================================
 install_packages = function(packages, load=TRUE) {
   # load : load the packages after installation?
   for(pkg in packages) {
@@ -31,7 +30,7 @@ List.list[[10]] = others = c("beepr")
 packages_to_install_and_load = unlist(List.list)
 install_packages(packages_to_install_and_load)
 
-## 🟧dplyr =======================================================
+
 filter = dplyr::filter
 select = dplyr::select
 
@@ -56,9 +55,55 @@ adjust_path <- function(path) {
 
 
 
+# 🟪 Options =============================================================================
+get_atlas_options <- function(atlas_name) {
+  switch(atlas_name,
+         "AAL3" = list(n_order = 4, n_breaks = 300, lambdas = exp(seq(-5, -4, 0.5))),
+         "1000Parcels" = list(n_order = 4, n_breaks = NULL, lambdas = exp(seq(-4, -3, 0.5))),
+         "900Parcels" = list(n_order = 4, n_breaks = NULL, lambdas = exp(seq(-3, -2, 0.5))),
+         "800Parcels" = list(n_order = 4, n_breaks = NULL, lambdas = exp(seq(-3, -2, 0.5))),
+         "700Parcels" = list(n_order = 4, n_breaks = NULL, lambdas = exp(seq(-3, -2, 0.5))),
+         "600Parcels" = list(n_order = 4, n_breaks = NULL, lambdas = exp(seq(-2, -1, 0.5))),
+         "500Parcels" = list(n_order = 4, n_breaks = NULL, lambdas = exp(seq(-2, -1, 0.5))),
+         "400Parcels" = list(n_order = 4, n_breaks = NULL, lambdas = exp(seq(-2, -1, 0.5))),
+         "300Parcels" = list(n_order = 4, n_breaks = NULL, lambdas = exp(seq(-2, -1, 0.5))),
+         "200Parcels" = list(n_order = 4, n_breaks = NULL, lambdas = exp(seq(-2, -1, 0.5))),
+         "100Parcels" = list(n_order = 4, n_breaks = NULL, lambdas = exp(seq(-2, -1, 0.5))),
+         stop(paste("Unknown atlas:", atlas_name)))
+}
+
+
+
 
 # 🟥 Sub-functions =========================================================================================================
-## 🟨 RID 변경 =======================================================================
+## 🟨 fit length
+fit_length <- function(x.vec, fit.num) {
+  # x.vec가 numeric이면 character로 변환
+  if (is.numeric(x.vec)) {
+    x.vec <- as.character(x.vec)
+  }
+  
+  # fit.num보다 길이가 긴 항목이 있는지 확인
+  if (any(nchar(x.vec) > fit.num)) {
+    stop("fit.num should be larger!")
+  }
+  
+  # sprintf를 사용하여 자릿수를 맞춤
+  New_x.vec <- sprintf(paste0("%0", fit.num, "s"), x.vec)
+  
+  return(New_x.vec)
+}
+
+
+## 🟨 모든 열을 numeric으로
+convert_all_to_numeric <- function(df) {
+  df[] <- lapply(df, function(col) {
+    as.numeric(as.character(col))
+  })
+  return(df)
+}
+
+## 🟨 RID 변경
 change_rid = function(rid){
   sprintf("RID_%04d", rid)
 }
@@ -67,26 +112,26 @@ change_rid = function(rid){
 
 
 
-## 🟨 파일별 옵션 선택 함수 정의 =======================================================================
-get_options_for_file <- function(file_name) {
-  if (grepl("AAL3", file_name)) {
-    return(options_for_each_atlas_list[["AAL3"]])
-  }
-  parcels_pattern <- stringr::str_extract(file_name, "\\d+Parcels")
-  if (!is.na(parcels_pattern) && parcels_pattern %in% names(options_for_each_atlas_list)) {
-    
-    return(options_for_each_atlas_list[[parcels_pattern]])
-    
-  }
-  return(list())
-}
+## 🟨 파일별 옵션 선택 함수 정의
+# get_options_for_file <- function(file_name) {
+#   if (grepl("AAL3", file_name)) {
+#     return(options_for_each_atlas_list[["AAL3"]])
+#   }
+#   parcels_pattern <- stringr::str_extract(file_name, "\\d+Parcels")
+#   if (!is.na(parcels_pattern) && parcels_pattern %in% names(options_for_each_atlas_list)) {
+#     
+#     return(options_for_each_atlas_list[[parcels_pattern]])
+#     
+#   }
+#   return(list())
+# }
 
 
 
 
 
 # 🟥 Single Smoothing Functions =========================================================================================================
-## 🟨 Single : smoothing by bspline gcv =======================================================================
+## 🟨 Single : smoothing by bspline gcv
 smoothing_by_bspline_gcv <- function(df,
                                      domain, 
                                      n_order, 
@@ -104,14 +149,6 @@ smoothing_by_bspline_gcv <- function(df,
   library(fda)
   library(crayon)
   
-  ### 🟦 Convert to numeric =============================================================================================
-  convert_all_to_numeric <- function(df) {
-    df[] <- lapply(df, function(col) {
-      as.numeric(as.character(col))
-    })
-    return(df)
-  }
-  
   X <- df %>% convert_all_to_numeric %>% as.matrix()
   
   if (is.null(n_breaks)) {
@@ -120,7 +157,7 @@ smoothing_by_bspline_gcv <- function(df,
   
   
   
-  ### 🟦 find an optimal lambda =============================================================================================
+  ### 🟠 find an optimal lambda =============================================================================================
   opt_lambda <- lambdas[which.min(sapply(lambdas, function(ith_lambda) {
     tryCatch({
       fdPar_obj <- fdPar(fdobj = create.bspline.basis(
@@ -135,7 +172,7 @@ smoothing_by_bspline_gcv <- function(df,
   }))]
   
   
-  ### 🟦 Before smoothing plot =============================================================================================
+  ### 🟠 Before smoothing plot =============================================================================================
   if (generate_plots && !is.null(path_export)) {
     file_path_before <- file.path(path_export, paste0(roi_name, "_", file_name, "_before.png"))
     if (file.exists(file_path_before) && !overwrite) {
@@ -156,7 +193,7 @@ smoothing_by_bspline_gcv <- function(df,
   
   
   
-  ### 🟦 Smoothing using the optimal parameter =============================================================================================
+  ### 🟠 Smoothing using the optimal parameter =============================================================================================
   rds_file_path <- file.path(path_export, paste0(roi_name, "_smoothed.rds"))
   
   if (file.exists(rds_file_path)) {
@@ -179,7 +216,7 @@ smoothing_by_bspline_gcv <- function(df,
   
   
   
-  ### 🟦 After smoothing plot =============================================================================================
+  ### 🟠 After smoothing plot =============================================================================================
   opt_lambda_exp <- paste0("exp(", round(log(opt_lambda), 2), ")")
   
   # After 파일 이름에 옵션 포함
@@ -206,7 +243,7 @@ smoothing_by_bspline_gcv <- function(df,
   
   
   
-  ### 🟦 Save the results =============================================================================================
+  ### 🟠 Save the results =============================================================================================
   if(save_each_ROI){
     
     if (!file.exists(rds_file_path) || overwrite) {
@@ -221,7 +258,7 @@ smoothing_by_bspline_gcv <- function(df,
     }
   }
   
-  ### 🟦 Return =============================================================================================
+  ### 🟠 Return =============================================================================================
   return(smoothing_result)
 }
 
@@ -327,6 +364,7 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
                                                test,
                                                options_for_each_atlas_list, 
                                                common_options = list(), 
+                                               target_group,
                                                filtering_words = character()) {  # 적절한 이름으로 수정
   # Load FC files list
   all_FC_file_list <- list.files(path_all_FC, full.names = TRUE)
@@ -346,7 +384,13 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
     
     # 🟢 Atlas별 폴더 생성 ====================================================================
     atlas_name = tools::file_path_sans_ext(basename(path_ith_FC))
-    atlas_export_path = file.path(common_options$path_export, atlas_name)
+    new_fold = paste(target_group, 
+                     tools::file_path_sans_ext(basename(path_all_FC)),
+                     sep = "___")
+    
+    atlas_export_path = file.path(common_options$path_export, new_fold)
+    
+    
     if (!dir.exists(atlas_export_path)) {
       
       dir.create(atlas_export_path, recursive = TRUE)
@@ -354,36 +398,47 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
       
     }
     
+    
+    
     # 🟢 getting option for the atlas ====================================================================
-    final_options = c(common_options, get_options_for_file(atlas_name)) %>% 
-      { .[(names(.) != "path_export")] }
+    final_options = c(common_options, options_for_each_atlas_list)
+    
+    
     
     # 🟢 Test 데이터 처리 ====================================================================
+    # subjects = read.csv("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/1.Subjects List/9.MT1-EPI-Merged-Subjects-List.csv")
+    # tmp = subjects %>% filter(paste0("RID_", fit_length(RID, 4)) %in% test_RID)
     test_RID <- change_rid(test$RID)
     test_path <- file.path(atlas_export_path, "test")
     dir.create(test_path, showWarnings = FALSE)
     cat(crayon::cyan("[INFO] Processing Test Data for Atlas:"), crayon::bold(atlas_name), "\n")
+    final_options$path_export = test_path
     test_params = c(list(path_ith_FC = path_ith_FC,
-                         target_RID = test_RID, 
-                         path_export = test_path), 
+                         target_RID = test_RID), 
                     final_options)
     do.call(smoothing_multiple_ROIs, test_params)
+    
+    
+    
     
     # 🟢 전체 Train 데이터 smoothing  ====================================================================
     train = rbind(train_folded$Fold_1_Train, train_folded$Fold_1_Validation)
     train_RID = change_rid(train$RID)
+    # tmp = subjects %>% filter(paste0("RID_", fit_length(RID, 4)) %in% train_RID)
     train_path <- file.path(atlas_export_path, "total_train")
     dir.create(train_path, showWarnings = FALSE)
     cat(crayon::cyan("[INFO] Processing Total Train Data for Atlas:"), crayon::bold(atlas_name), "\n")
+    final_options$path_export = train_path
     train_params = c(list(path_ith_FC = path_ith_FC,
-                          target_RID = train_RID, 
-                          path_export = train_path), 
+                          target_RID = train_RID), 
                      final_options)
     do.call(smoothing_multiple_ROIs, train_params)
     
+    
+    
     # 🟢 각 폴드에 대해 Train 및 Validation 데이터 처리  ====================================================================
     for (fold in seq(1, 5)) {
-      
+      # fold = 1
       train_data <- train_folded[[paste0("Fold_", fold, "_Train")]]
       validation_data <- train_folded[[paste0("Fold_", fold, "_Validation")]]
       
@@ -394,9 +449,9 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
       train_path <- file.path(atlas_export_path, "train", paste0("fold_", fold))
       dir.create(train_path, recursive = TRUE, showWarnings = FALSE)
       cat(crayon::cyan("[INFO] Processing Train Data for Fold:"), fold, "-", crayon::bold(atlas_name), "\n")
-      train_params <- c(list(path_ith_FC = path_ith_FC, 
-                             target_RID = train_RID, 
-                             path_export = train_path), 
+      final_options$path_export = train_path
+      train_params = c(list(path_ith_FC = path_ith_FC, 
+                             target_RID = train_RID), 
                         final_options)
       do.call(smoothing_multiple_ROIs, train_params)
       
@@ -404,12 +459,37 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
       validation_path <- file.path(atlas_export_path, "validation", paste0("fold_", fold))
       dir.create(validation_path, recursive = TRUE, showWarnings = FALSE)
       cat(crayon::cyan("[INFO] Processing Validation Data for Fold:"), fold, "-", crayon::bold(atlas_name), "\n")
+      final_options$path_export = validation_path
       validation_params <- c(list(path_ith_FC = path_ith_FC, 
-                                  target_RID = validation_RID, 
-                                  path_export = validation_path), 
+                                  target_RID = validation_RID), 
                              final_options)
       do.call(smoothing_multiple_ROIs, validation_params)
       
     }
   }
+}
+
+
+
+## 🟨 apply_by_target_group ========================================================================================
+apply_by_target_group = function(target_group,
+                                 path_test_train_subjects_list,
+                                 path_curves_by_distance,
+                                 path_export,
+                                 atlas_name){
+  path_measure_folders_list = list.files(path_curves_by_distance, full.names = T)
+  results = lapply(path_measure_folders_list, function(path_ith_measure){
+    # path_ith_measure = list.files(path_curves_by_distance, full.names = T)[4]
+    path_target_test_train_list = file.path(path_test_train_subjects_list, target_group)
+    
+    apply_smoothing_to_all_atlas_files(path_all_FC = path_ith_measure,
+                                       train_folded = list.files(path_target_test_train_list, pattern = "train_seed", full.names = T) %>% readRDS,
+                                       test = list.files(path_target_test_train_list, pattern = "test_seed", full.names = T) %>% readRDS,
+                                       options_for_each_atlas_list = get_atlas_options(atlas_name),
+                                       common_options = list(path_export = path_export, 
+                                                             overwrite = FALSE, 
+                                                             max_plots = 5),
+                                       target_group,
+                                       filtering_words = atlas_name)
+  })
 }
