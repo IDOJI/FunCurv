@@ -371,7 +371,6 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
                                                test,
                                                options_for_each_atlas_list, 
                                                common_options = list(), 
-                                               target_group,
                                                filtering_words = character()) {
   # all subjects list
   all_subjects_list = read.csv(path_all_subjects_list)
@@ -402,9 +401,7 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
     # 🟢 Atlas별 폴더 생성 ====================================================================
     atlas_name = tools::file_path_sans_ext(basename(path_ith_FC))
     
-    new_fold = paste(target_group, 
-                     tools::file_path_sans_ext(basename(path_all_FC)),
-                     sep = "___")
+    new_fold = tools::file_path_sans_ext(basename(path_all_FC))
     
     atlas_export_path = file.path(common_options$path_export, new_fold)
     
@@ -515,13 +512,13 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
 
 
 ## 🟨 apply_by_target_group ========================================================================================
-apply_by_target_group = function(target_group,
+apply_by_target_group = function(path_all_subjects_list,
                                  path_test_train_subjects_list,
                                  path_curves_by_distance,
                                  path_export,
                                  atlas_name){
   
-  
+  path_all_subjects_list = path_all_subjects_list %>% adjust_path
   path_test_train_subjects_list = path_test_train_subjects_list %>% adjust_path
   path_curves_by_distance = path_curves_by_distance %>% adjust_path
   path_export = path_export %>% adjust_path
@@ -532,16 +529,16 @@ apply_by_target_group = function(target_group,
   results = lapply(path_measure_folders_list, function(path_ith_measure){
     # path_ith_measure = list.files(path_curves_by_distance, full.names = T)[4]
     
-    path_target_test_train_list = file.path(path_test_train_subjects_list, target_group)
+    path_target_test_train_list = path_test_train_subjects_list
     
     apply_smoothing_to_all_atlas_files(path_all_FC = path_ith_measure,
+                                       path_all_subjects_list,
                                        train_folded = list.files(path_target_test_train_list, pattern = "train_seed", full.names = T) %>% readRDS,
                                        test = list.files(path_target_test_train_list, pattern = "test_seed", full.names = T) %>% readRDS,
                                        options_for_each_atlas_list = get_atlas_options(atlas_name),
                                        common_options = list(path_export = path_export, 
                                                              overwrite = FALSE, 
                                                              max_plots = 5),
-                                       target_group,
                                        filtering_words = atlas_name)
   })
 }
