@@ -366,14 +366,20 @@ smoothing_multiple_ROIs <- function(path_ith_FC,
 
 ## 🟨 각 atlas에 서로 다른 옵션 적용하는 함수 =======================================================================
 apply_smoothing_to_all_atlas_files <- function(path_all_FC, 
+                                               path_all_subjects_list,
                                                train_folded,
                                                test,
                                                options_for_each_atlas_list, 
                                                common_options = list(), 
                                                target_group,
-                                               filtering_words = character()) {  # 적절한 이름으로 수정
+                                               filtering_words = character()) {
+  # all subjects list
+  all_subjects_list = read.csv(path_all_subjects_list)
+  
   # Load FC files list
   all_FC_file_list <- list.files(path_all_FC, full.names = TRUE)
+  
+  
   
   # filtering_words에 지정된 문자열이 포함된 파일만 필터링
   if (length(filtering_words) > 0) {
@@ -389,11 +395,10 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
   }
   
   
+  
   # 각 atlas 파일에 대해 처리
   for (path_ith_FC in filtered_FC_file_list) {
     # path_ith_FC = filtered_FC_file_list[1]
-    
-    
     # 🟢 Atlas별 폴더 생성 ====================================================================
     atlas_name = tools::file_path_sans_ext(basename(path_ith_FC))
     
@@ -413,73 +418,97 @@ apply_smoothing_to_all_atlas_files <- function(path_all_FC,
     
     
     
+    
     # 🟢 getting option for the atlas ====================================================================
     final_options = c(common_options, options_for_each_atlas_list)
     
     
     
     
-    # 🟢 Test 데이터 처리 ====================================================================
-    # subjects = read.csv("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/1.Subjects List/9.MT1-EPI-Merged-Subjects-List.csv")
-    # tmp = subjects %>% filter(paste0("RID_", fit_length(RID, 4)) %in% test_RID)
-    test_RID <- change_rid(test$RID)
-    test_path <- file.path(atlas_export_path, "test")
-    dir.create(test_path, showWarnings = FALSE)
-    cat(crayon::cyan("[INFO] Processing Test Data for Atlas:"), crayon::bold(atlas_name), "\n")
-    final_options$path_export = test_path
-    test_params = c(list(path_ith_FC = path_ith_FC,
-                         target_RID = test_RID), 
-                    final_options)
-    do.call(smoothing_multiple_ROIs, test_params)
+    # 🟢 전체 데이터 한 번에 smoothing ====================================================================
+    all_RID = all_subjects_list %>% 
+      filter(EPI___BAND.TYPE == "SB") %>% 
+      pull(RID) %>% 
+      change_rid()
+    all_params = c(list(path_ith_FC = path_ith_FC,
+                        target_RID = all_RID), 
+                   final_options)
+    all_params$path_export = file.path(atlas_export_path, atlas_name)
+    do.call(smoothing_multiple_ROIs, all_params)
     
     
     
-    
-    # 🟢 전체 Train 데이터 smoothing  ====================================================================
-    train = rbind(train_folded$Fold_1_Train, train_folded$Fold_1_Validation)
-    train_RID = change_rid(train$RID)
-    # tmp = subjects %>% filter(paste0("RID_", fit_length(RID, 4)) %in% train_RID)
-    train_path <- file.path(atlas_export_path, "total_train")
-    dir.create(train_path, showWarnings = FALSE)
-    cat(crayon::cyan("[INFO] Processing Total Train Data for Atlas:"), crayon::bold(atlas_name), "\n")
-    final_options$path_export = train_path
-    train_params = c(list(path_ith_FC = path_ith_FC,
-                          target_RID = train_RID), 
-                     final_options)
-    do.call(smoothing_multiple_ROIs, train_params)
-    
-    
-    
-    # 🟢 각 폴드에 대해 Train 및 Validation 데이터 처리  ====================================================================
-    for (fold in seq(1, 5)) {
-      # fold = 1
-      train_data <- train_folded[[paste0("Fold_", fold, "_Train")]]
-      validation_data <- train_folded[[paste0("Fold_", fold, "_Validation")]]
-      
-      train_RID <- change_rid(train_data$RID)
-      validation_RID <- change_rid(validation_data$RID)
-      
-      # Train 데이터 처리
-      train_path <- file.path(atlas_export_path, "train", paste0("fold_", fold))
-      dir.create(train_path, recursive = TRUE, showWarnings = FALSE)
-      cat(crayon::cyan("[INFO] Processing Train Data for Fold:"), fold, "-", crayon::bold(atlas_name), "\n")
-      final_options$path_export = train_path
-      train_params = c(list(path_ith_FC = path_ith_FC, 
-                             target_RID = train_RID), 
-                        final_options)
-      do.call(smoothing_multiple_ROIs, train_params)
-      
-      # Validation 데이터 처리
-      validation_path <- file.path(atlas_export_path, "validation", paste0("fold_", fold))
-      dir.create(validation_path, recursive = TRUE, showWarnings = FALSE)
-      cat(crayon::cyan("[INFO] Processing Validation Data for Fold:"), fold, "-", crayon::bold(atlas_name), "\n")
-      final_options$path_export = validation_path
-      validation_params <- c(list(path_ith_FC = path_ith_FC, 
-                                  target_RID = validation_RID), 
-                             final_options)
-      do.call(smoothing_multiple_ROIs, validation_params)
-      
-    }
+    # # 🟢 Test 데이터 처리
+    # test_RID <- change_rid(test$RID)
+    # train_RID = change_rid(train$RID)
+    # 
+    # 
+    # 
+    # # 🟢 Test 데이터 처리
+    # test_RID <- change_rid(test$RID)
+    # train_RID = change_rid(train$RID)
+    # 
+    # 
+    # # subjects = read.csv("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/1.Subjects List/9.MT1-EPI-Merged-Subjects-List.csv")
+    # # tmp = subjects %>% filter(paste0("RID_", fit_length(RID, 4)) %in% test_RID)
+    # 
+    # test_path <- file.path(atlas_export_path, "test")
+    # dir.create(test_path, showWarnings = FALSE)
+    # cat(crayon::cyan("[INFO] Processing Test Data for Atlas:"), crayon::bold(atlas_name), "\n")
+    # final_options$path_export = test_path
+    # test_params = c(list(path_ith_FC = path_ith_FC,
+    #                      target_RID = test_RID), 
+    #                 final_options)
+    # 
+    # 
+    # 
+    # 
+    # 
+    # # 🟢 전체 Train 데이터 smoothing 
+    # train = rbind(train_folded$Fold_1_Train, train_folded$Fold_1_Validation)
+    # train_RID = change_rid(train$RID)
+    # # tmp = subjects %>% filter(paste0("RID_", fit_length(RID, 4)) %in% train_RID)
+    # train_path <- file.path(atlas_export_path, "total_train")
+    # dir.create(train_path, showWarnings = FALSE)
+    # cat(crayon::cyan("[INFO] Processing Total Train Data for Atlas:"), crayon::bold(atlas_name), "\n")
+    # final_options$path_export = train_path
+    # train_params = c(list(path_ith_FC = path_ith_FC,
+    #                       target_RID = train_RID), 
+    #                  final_options)
+    # do.call(smoothing_multiple_ROIs, train_params)
+    # 
+    # 
+    # 
+    # # 🟢 각 폴드에 대해 Train 및 Validation 데이터 처리 
+    # for (fold in seq(1, 5)) {
+    #   # fold = 1
+    #   train_data <- train_folded[[paste0("Fold_", fold, "_Train")]]
+    #   validation_data <- train_folded[[paste0("Fold_", fold, "_Validation")]]
+    #   
+    #   train_RID <- change_rid(train_data$RID)
+    #   validation_RID <- change_rid(validation_data$RID)
+    #   
+    #   # Train 데이터 처리
+    #   train_path <- file.path(atlas_export_path, "train", paste0("fold_", fold))
+    #   dir.create(train_path, recursive = TRUE, showWarnings = FALSE)
+    #   cat(crayon::cyan("[INFO] Processing Train Data for Fold:"), fold, "-", crayon::bold(atlas_name), "\n")
+    #   final_options$path_export = train_path
+    #   train_params = c(list(path_ith_FC = path_ith_FC, 
+    #                          target_RID = train_RID), 
+    #                     final_options)
+    #   do.call(smoothing_multiple_ROIs, train_params)
+    #   
+    #   # Validation 데이터 처리
+    #   validation_path <- file.path(atlas_export_path, "validation", paste0("fold_", fold))
+    #   dir.create(validation_path, recursive = TRUE, showWarnings = FALSE)
+    #   cat(crayon::cyan("[INFO] Processing Validation Data for Fold:"), fold, "-", crayon::bold(atlas_name), "\n")
+    #   final_options$path_export = validation_path
+    #   validation_params <- c(list(path_ith_FC = path_ith_FC, 
+    #                               target_RID = validation_RID), 
+    #                          final_options)
+    #   do.call(smoothing_multiple_ROIs, validation_params)
+    #   
+    # }
   }
 }
 
