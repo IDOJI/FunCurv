@@ -59,70 +59,26 @@ set_output_path <- function(input_path) {
 
 
 # 🟩 Extract smoothing results  =========================================================================================================
-extract_smoothed_fd = function(rid, smoothed_results){
-  tmp = readRDS("/Users/Ido/Documents/✴️DataAnalysis/FunCurv/2.Construction of curves by distance/4.Smoothing Curves by B-spline basis expansion/FunImgARCWSF_FC/AAL3/test/combined_smoothing_results_AAL3.rds")
+extract_smoothed_fd <- function(rid_indices, smoothed_results){
   
-  tmp$ROI_001$fdSmooth_obj$fd$fdnames
+  # Extract the relevant smoothed coefficients for the specified subjects
+  fdobj <- smoothed_results$fdSmooth_obj$fd
   
-  
-  
-  # 필요한 패키지 로드
-  library(fda)
-  
-  # 예시 데이터 생성
-  set.seed(123)
-  n_samples <- 100  # 총 관측치 수 (예: 100명 실험체)
-  n_points <- 50    # 각 관측치의 관측 지점 수 (예: 시간 또는 도메인 상의 지점 수)
-  domain <- seq(0, 1, length.out = n_points)
-  
-  # 랜덤한 이산적 데이터 생성 (행: 관측 지점, 열: 관측치)
-  Y <- matrix(rnorm(n_samples * n_points), nrow = n_points, ncol = n_samples)
-  Y = tmp$ROI_001$fdSmooth_obj$y
-  tmp$ROI_001$fdSmooth_obj$fd$fdnames
-  tmp$ROI_001$fdSmooth_obj$argvals %>% dim
-  
-  # B-스플라인 기저 함수 생성
-  nbasis <- 15  # 기저 함수의 개수
-  basis <- create.bspline.basis(rangeval = c(min(domain), max(domain)), norder = 4, breaks = seq(min(domain), max(domain), length.out = 300))
-  
-  # 스무딩 파라미터 설정
-  lambda <- 1e-4  # 스무딩 파라미터 (필요에 따라 조정 가능)
-  fdParobj <- fdPar(fdobj = basis, Lfdobj = int2Lfd(2), lambda = lambda)
-  
-  
-  # 전체 데이터를 한 번에 스무딩
-  domain = tmp$ROI_001$fdSmooth_obj$argvals
-  smooth_result <- smooth.basis(argvals = domain, y = Y, fdParobj = fdParobj)
-  plot(smooth_result)
-  # 스무딩된 함수형 데이터 추출
-  fdobj <- smooth_result$fd  # 함수형 데이터 객체 (fd 객체)
-  
-  # 데이터 분할: 예를 들어 70%는 train, 15%는 validation, 15%는 test로 분할
-  train_indices <- 1:70
-  validation_indices <- 71:85
-  test_indices <- 86:100
-  
-  View(fdobj$coefs)
-  # 각 세트에 해당하는 스무딩된 계수(coef)를 추출
-  train_fd <- fd(coef = fdobj$coefs[, train_indices], basisobj = fdobj$basis)
-  validation_fd <- fd(coef = fdobj$coefs[, validation_indices], basisobj = fdobj$basis)
-  test_fd <- fd(coef = fdobj$coefs[, test_indices], basisobj = fdobj$basis,
-                fdnames = fdobj$fdnames)
-  
-  test_fd$fdnames$reps = "RID_"
-  smooth_result$fd %>% plot
-  
-  train_fd$fdnames
-  # 이제 train_fd, validation_fd, test_fd를 사용하여 분석을 진행할 수 있습니다.
-  fpca = pca.fd(train_fd, nharm = 10)
-  
-  fpca$harmonics %>% plot
-  
-  
-  
-  
+  # Check if all requested rid_indices are present in the fdnames and coefficients
+  if(all(rid_indices %in% fdobj$fdnames$reps) && all(rid_indices %in% colnames(fdobj$coefs))) {  
+    
+    # Extract the smoothed functional data for the specified subjects
+    extracted_fd <- fd(coef = fdobj$coefs[, rid_indices], 
+                       basisobj = fdobj$basis, 
+                       fdnames = list(time = fdobj$fdnames$time, 
+                                      reps = rid_indices, 
+                                      values = fdobj$fdnames$values))  
+    return(extracted_fd)  
+  } else {
+    # Raise an error if any rid_indices are not found
+    stop("Error: One or more specified RID indices are not found in the smoothed results.")
+  }
 }
-
 
 
 
@@ -755,6 +711,9 @@ perform_fpca_for_multiple_atlases <- function(input_paths,
                                               export_total_train = TRUE,
                                               export_test = TRUE,
                                               return_total = TRUE){
+  input_paths = input_paths %>% convert_path
+  output_path = output_path %>% set_output_path
+  
   dir.create(output_path, showWarnings = FALSE, recursive = TRUE)
   
   # atlas 폴더만 선택해서 읽어오기
