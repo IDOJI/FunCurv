@@ -14,6 +14,103 @@
 
 
 ## 🟩 Group penalty ================================================================================================
+path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARCWSF_Fisher Z FC/FPCA_Train_AAL3.rds"
+data = readRDS(path_data)
+group_numbers = list()
+
+path_subjects_list = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/2.Split train and test data/AD, CN/all_train_data_seed_4649.rds"
+subjects_list = readRDS(path_subjects_list)
+y = subjects_list$DIAGNOSIS_FINAL %>% as.factor
+
+
+fpca_scores_train = lapply(seq_along(data), function(i){
+  x = data[[i]]
+  scores  = x$fpca_scores_train %>% select(-RID)
+  group_numbers[[i]] <<- rep(i, ncol(scores))
+  return(scores)
+}) %>% do.call(bind_cols, .)
+X = cbind(RID = data$ROI_001$fpca_scores_train$RID, fpca_scores_train)
+group = group_numbers %>% unlist
+
+# grpreg logistic regression (group lasso) example
+
+# Load the required library
+library(grpreg)
+
+y_new = as.numeric(y == "Dementia")
+
+# Fit a logistic regression model using group lasso penalty
+fit <- grpreg(X = fpca_scores_train, 
+              y = y_new, 
+              group = group, penalty = "grLasso", family = "binomial")
+
+# Plot the regularization path
+plot(fit)
+
+# Select the optimal lambda using AIC or BIC
+lambda_opt <- grpreg::select(fit, criterion = "AIC")
+
+# 필요한 패키지 설치 및 로드
+if (!requireNamespace("pROC", quietly = TRUE)) install.packages("pROC")
+if (!requireNamespace("PRROC", quietly = TRUE)) install.packages("PRROC")
+library(pROC)
+library(PRROC)
+
+# 새로운 테스트 데이터 (예시)
+set.seed(123)
+X_test <- matrix(rnorm(100 * 20), 100, 20)  # 100개의 샘플, 20개의 변수
+y_test <- rbinom(100, 1, 0.5)  # 0과 1로 구성된 이진 레이블
+
+# 모델을 사용하여 예측 확률 계산
+
+# Generate new test data
+data_test = readRDS("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARCWSF_Fisher Z FC/FPCA_Test_AAL3.rds")
+
+test_subjects = readRDS("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/2.Split train and test data/AD, CN/test_seed_4649.rds")
+y_test = as.numeric(test_subjects$DIAGNOSIS_FINAL == "Dementia")
+
+group_numbers_test = list()
+fpca_scores_test = lapply(seq_along(data_test), function(i){
+  x = data_test[[i]]
+  scores  = x$fpca_scores_train %>% select(-RID)
+  group_numbers_test[[i]] <<- rep(i, ncol(scores))
+  return(scores)
+}) %>% do.call(bind_cols, .)
+X_test = cbind(RID = data_test$ROI_001$fpca_scores_train, fpca_scores_test)
+group_test = group_numbers_test %>% unlist
+
+# Make predictions (probabilities) on the test data
+dim(fpca_scores_test)
+dim(fpca_scores_train)
+pred_prob <- predict(fit, fpca_scores_test, type = "response")
+
+# Calculate AUC
+roc_curve <- roc(y_test, pred_prob)
+auc_value <- auc(roc_curve)
+cat("AUC:", auc_value, "\n")
+
+# Calculate PR-AUC
+pr_curve <- pr.curve(scores.class0 = pred_prob[y_test == 1], 
+                     scores.class1 = pred_prob[y_test == 0], 
+                     curve = TRUE)
+cat("PR-AUC:", pr_curve$auc.integral, "\n")
+
+# Plot the ROC curve
+plot(roc_curve, main = "ROC Curve")
+
+# Plot the Precision-Recall curve
+plot(pr_curve, main = "Precision-Recall Curve")
+
+
+
+
+
+
+
+
+
+
+
 path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/FunImgARCWSF_FC/AAL3"
 path_subjects_list = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/1.Subjects List/9.MT1-EPI-Merged-Subjects-List.csv"
 

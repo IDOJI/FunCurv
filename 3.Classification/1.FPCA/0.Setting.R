@@ -360,22 +360,6 @@ apply_FPCA_to_all_measures = function(path_all_splitted_subjects,
       # Combine Resulst
       combined_results = list()
       
-      # All train
-      combined_results[["FPCA_All Train"]] = FPCA_train_valid_every_roi(smoothed_results, 
-                                                                        train_rid = all_train_subjects$RID, 
-                                                                        valid_rid = NULL, 
-                                                                        path_save = path_target_export, 
-                                                                        file_name = paste0("FPCA_Train_", atlas_name))
-      
-      
-      
-      # Test
-      combined_results[["FPCA_Test"]] = FPCA_train_valid_every_roi(smoothed_results, 
-                                                                   train_rid = test_subjects$RID, 
-                                                                   valid_rid = NULL, 
-                                                                   path_save = path_target_export, 
-                                                                   file_name = paste0("FPCA_Test_", atlas_name))
-      
       # train & validation
       all_roi_FPCA_train_validation = list()
       for (i in 1:(length(train_validation_subjects)/2)) {
@@ -390,8 +374,18 @@ apply_FPCA_to_all_measures = function(path_all_splitted_subjects,
                                                                                          path_save = path_target_export, 
                                                                                          file_name = paste0("FPCA_Train & Validation_Fold_", i, "_",atlas_name))
       }
-        
       combined_results[["FPCA_Train & Validation"]] = all_roi_FPCA_train_validation
+      
+      
+      
+      
+      
+      # All train & Test
+      combined_results[["FPCA_All Train"]] = FPCA_train_valid_every_roi(smoothed_results, 
+                                                                        train_rid = all_train_subjects$RID, 
+                                                                        valid_rid = test_subjects$RID, 
+                                                                        path_save = path_target_export, 
+                                                                        file_name = paste0("FPCA_Train_and_Test", atlas_name))
     }
     
   }
