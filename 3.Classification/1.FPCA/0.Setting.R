@@ -196,18 +196,59 @@ FPCA_scores = function(fd_obj, fpca_results){
 }
 
 
+
+# 🟪 FPCA for train & valid  ============================================================================================
+FPCA_train_valid = function(fd_obj, 
+                            train_rid, 
+                            valid_rid = NULL,
+                            fpc_name = NULL){
+  # RID sorting
+  train_rid = train_rid %>% sort
+  valid_rid = valid_rid %>% sort
+  
+  # Results
+  combined_results = list()
+  
+  # Train
+  train_fd_obj = extract_smoothed_fd(fd_obj, train_rid)
+  train_fpca_results = FPCA(fd_obj = train_fd_obj)
+  combined_results[["train_fpca"]] = train_fpca_results
+  combined_results[["fpca_scores_train"]] = train_fpca_results$selected_fpc_scores %>% 
+    as.data.frame %>% 
+    setNames(paste0(fpc_name, "_", names(.))) %>% 
+    mutate(RID = train_rid) %>% 
+    relocate(RID)
+  
+  
+  # Valid
+  if(!is.null(valid_rid)){
+    valid_fd_obj = extract_smoothed_fd(fd_obj, valid_rid)
+    valid_fpca_scores = FPCA_scores(fd_obj = valid_fd_obj, fpca_results = train_fpca_results)
+    combined_results[["fpca_scores_valid"]] = valid_fpca_scores %>% 
+      as.data.frame %>% 
+      setNames(paste0(fpc_name, "_", names(.))) %>% 
+      mutate(RID = valid_rid) %>% 
+      relocate(RID)
+  }
+  return(combined_results)
+}
+
+
 # 🟪 FPCA for every ROI  ============================================================================================
 FPCA_train_valid_every_roi = function(smoothed_results, 
                                       train_rid, 
                                       valid_rid = NULL, 
-                                      path_export = NULL, 
+                                      path_save = NULL, 
                                       file_name = NULL){
   library(crayon)
   library(tictoc)
   
+  train_rid = train_rid %>% sort
+  valid_rid = valid_rid %>% sort
+  
   # 최종 파일 경로 설정
-  if (!is.null(path_export) && !is.null(file_name)) {
-    final_file_path = file.path(path_export, paste0(file_name, ".rds"))
+  if (!is.null(path_save) && !is.null(file_name)) {
+    final_file_path = file.path(path_save, paste0(file_name, ".rds"))
     
     # 최종 파일이 존재하면 계산을 건너뛰고 불러옴
     if (file.exists(final_file_path)) {
@@ -221,31 +262,37 @@ FPCA_train_valid_every_roi = function(smoothed_results,
   for (roi_name in names(smoothed_results)) {
     # roi_name = names(smoothed_results)[1]
     # 개별 ROI 파일 경로 생성
-    if (!is.null(path_export)) {
+    if (!is.null(path_save)) {
       
-      path_export_tmp = file.path(path_export, file_name)
-      dir.create(path_export_tmp, showWarnings = F)
-      file_path = file.path(path_export, file_name, paste0(roi_name, ".rds"))
+      path_save_tmp = file.path(path_save, file_name)
+      
+      dir.create(path_save_tmp, showWarnings = F, recursive = T)
+      
+      roi_file_path = file.path(path_save_tmp, paste0(roi_name, ".rds"))
+      
     }
     
     # 시간 측정 시작
     tic(roi_name)
     
-    if (!is.null(path_export) && file.exists(file_path)) {
+    if (!is.null(path_save) && file.exists(roi_file_path)) {
+      
       # 파일이 존재하면 건너뛰고 파일을 불러옴
       cat(green("[INFO] "), yellow("Skipping calculation for "), cyan(roi_name), yellow(": file already exists.\n"))
-      ith_result <- readRDS(file_path)
+      ith_result <- readRDS(roi_file_path)
+      
     } else {
       # FPCA 계산 진행
       cat(green("[INFO] "), yellow("Starting FPCA calculation for "), cyan(roi_name), "\n")
       ith_result <- FPCA_train_valid(fd_obj = smoothed_results[[roi_name]]$fdSmooth_obj$fd, 
                                      train_rid, 
-                                     valid_rid)
+                                     valid_rid,
+                                     fpc_name = roi_name)
       
       # 결과 파일 저장 (path_export가 NULL이 아닌 경우에만)
-      if (!is.null(path_export)) {
-        saveRDS(ith_result, file_path)
-        cat(green("[INFO] "), yellow("Saved FPCA result for "), cyan(roi_name), yellow(" to "), cyan(file_path), "\n")
+      if (!is.null(path_save)) {
+        saveRDS(ith_result, file = roi_file_path)
+        cat(green("[INFO] "), yellow("Saved FPCA result for "), cyan(roi_name), yellow(" to "), cyan(roi_file_path), "\n")
       }
     }
     
@@ -258,133 +305,15 @@ FPCA_train_valid_every_roi = function(smoothed_results,
   }
   
   # 최종 결과 저장 및 개별 ROI 파일 삭제
-  if (!is.null(path_export) && !is.null(file_name)) {
+  if (!is.null(path_save) && !is.null(final_file_path)) {
     # 최종 결과 저장
     saveRDS(results, final_file_path)
     cat(green("[INFO] "), yellow("Saved final FPCA results to "), cyan(final_file_path), "\n")
     
-    # 개별 ROI 파일 삭제
-    for (roi_name in names(smoothed_results)) {
-      file_path = file.path(path_export_tmp, paste0(roi_name, ".rds"))
-      if (file.exists(file_path)) {
-        file.remove(file_path)
-        cat(green("[INFO] "), yellow("Deleted intermediate file for "), cyan(roi_name), "\n")
-      }
-    }
-  }
-  return(results)
-}
-
-
-# 🟪 FPCA for train & valid  ============================================================================================
-FPCA_train_valid = function(fd_obj, 
-                            train_rid, 
-                            valid_rid = NULL){
-  # RID sorting
-  train_rid = train_rid %>% sort
-  valid_rid = valid_rid %>% sort
-  
-  # Results
-  combined_results = list()
-  
-  # Train
-  train_fd_obj = extract_smoothed_fd(fd_obj, train_rid)
-  train_fpca_results = FPCA(fd_obj = train_fd_obj)
-  combined_results[["train_fpca"]] = train_fpca_results
-  combined_results[["fpca_scores_train"]] = train_fpca_results$selected_fpc_scores %>% 
-    mutate(RID = train_rid) %>% 
-    relocate(RID)
-  
-  
-  
-  
-  # Valid
-  if(!is.null(valid_rid)){
-    valid_fd_obj = extract_smoothed_fd(fd_obj, valid_rid)
-    valid_fpca_scores = FPCA_scores(fd_obj = valid_fd_obj, fpca_results = train_fpca_results)
-    combined_results[["fpca_scores_valid"]] = valid_fpca_scores %>% 
-      mutate(RID = valid_rid) %>% 
-      relocate(RID) 
-  }
-  return(combined_results)
-}
-
-
-
-
-
-
-
-
-FPCA_train_valid_every_roi = function(smoothed_results, 
-                                      train_rid, 
-                                      valid_rid = NULL, 
-                                      path_export = NULL, 
-                                      file_name = NULL){
-  library(crayon)
-  library(tictoc)
-  
-  # 최종 파일 경로 설정
-  if (!is.null(path_export) && !is.null(file_name)) {
-    final_file_path = file.path(path_export, paste0(file_name, ".rds"))
-    
-    # 최종 파일이 존재하면 계산을 건너뛰고 불러옴
-    if (file.exists(final_file_path)) {
-      cat(green("[INFO] "), yellow("Final results file already exists at "), cyan(final_file_path), "\n")
-      return(readRDS(final_file_path))
-    }
-  }
-  
-  results = list()  # 결과를 저장할 리스트 초기화
-  
-  for (roi_name in names(smoothed_results)) {
-    # 개별 ROI 파일 경로 생성
-    if (!is.null(path_export)) {
-      file_path = file.path(path_export, paste0(roi_name, ".rds"))
-    }
-    
-    # 시간 측정 시작
-    tic(roi_name)
-    
-    if (!is.null(path_export) && file.exists(file_path)) {
-      # 파일이 존재하면 건너뛰고 파일을 불러옴
-      cat(green("[INFO] "), yellow("Skipping calculation for "), cyan(roi_name), yellow(": file already exists.\n"))
-      ith_result <- readRDS(file_path)
-    } else {
-      # FPCA 계산 진행
-      cat(green("[INFO] "), yellow("Starting FPCA calculation for "), cyan(roi_name), "\n")
-      ith_result <- FPCA_train_valid(smoothed_results[[roi_name]]$fdSmooth_obj$fd, 
-                                     train_rid, 
-                                     valid_rid)
-      
-      # 결과 파일 저장 (path_export가 NULL이 아닌 경우에만)
-      if (!is.null(path_export)) {
-        saveRDS(ith_result, file_path)
-        cat(green("[INFO] "), yellow("Saved FPCA result for "), cyan(roi_name), yellow(" to "), cyan(file_path), "\n")
-      }
-    }
-    
-    # 결과 리스트에 저장
-    results[[roi_name]] <- ith_result
-    
-    # 시간 측정 종료 및 표시
-    cat(green("[TIME] "), yellow("Time taken for "), cyan(roi_name), ":\n")
-    toc()
-  }
-  
-  # 최종 결과 저장 및 개별 ROI 파일 삭제
-  if (!is.null(path_export) && !is.null(file_name)) {
-    # 최종 결과 저장
-    saveRDS(results, final_file_path)
-    cat(green("[INFO] "), yellow("Saved final FPCA results to "), cyan(final_file_path), "\n")
-    
-    # 개별 ROI 파일 삭제
-    for (roi_name in names(smoothed_results)) {
-      file_path = file.path(path_export, paste0(roi_name, ".rds"))
-      if (file.exists(file_path)) {
-        file.remove(file_path)
-        cat(green("[INFO] "), yellow("Deleted intermediate file for "), cyan(roi_name), "\n")
-      }
+    # 폴더 자체 삭제
+    if (dir.exists(path_save_tmp)) {
+      unlink(path_save_tmp, recursive = TRUE)
+      cat(green("[INFO] "), yellow("Deleted folder "), cyan(path_save_tmp), "\n")
     }
   }
   return(results)
@@ -405,7 +334,7 @@ apply_FPCA_to_all_measures = function(path_all_splitted_subjects,
     target_groups = basename(path_target_groups)
     
     for(path_target_measure in paths_target_measures){
-      # path_target_measure = paths_target_measures[1]
+      # path_target_measure = paths_target_measures[2]
       target_measure = basename(path_target_measure)
       
       path_target_export = file.path(path_export, paste0(target_groups, "___", target_measure))
@@ -415,6 +344,8 @@ apply_FPCA_to_all_measures = function(path_all_splitted_subjects,
         list.files(full.names=T, pattern = "\\.rds$") %>% 
         readRDS()
       
+      
+    
       # Subjects lists
       all_train_subjects = path_target_groups %>% 
         list.files(pattern = "all_train", full.names = T) %>% 
@@ -426,21 +357,24 @@ apply_FPCA_to_all_measures = function(path_all_splitted_subjects,
         list.files(pattern = "train_seed", full.names = T) %>% 
         readRDS
       
+      # Combine Resulst
+      combined_results = list()
+      
       # All train
-      all_roi_FPCA_Train = FPCA_train_valid_every_roi(smoothed_results, 
-                                                      train_rid = all_train_subjects$RID, 
-                                                      valid_rid = NULL, 
-                                                      path_export = path_target_export, 
-                                                      file_name = paste0("FPCA_Train_", atlas_name))
+      combined_results[["FPCA_All Train"]] = FPCA_train_valid_every_roi(smoothed_results, 
+                                                                        train_rid = all_train_subjects$RID, 
+                                                                        valid_rid = NULL, 
+                                                                        path_save = path_target_export, 
+                                                                        file_name = paste0("FPCA_Train_", atlas_name))
       
       
       
       # Test
-      all_roi_FPCA_Test = FPCA_train_valid_every_roi(smoothed_results, 
-                                                     train_rid = test_subjects$RID, 
-                                                     valid_rid = NULL, 
-                                                     path_export = path_target_export, 
-                                                     file_name = paste0("FPCA_Test_", atlas_name))
+      combined_results[["FPCA_Test"]] = FPCA_train_valid_every_roi(smoothed_results, 
+                                                                   train_rid = test_subjects$RID, 
+                                                                   valid_rid = NULL, 
+                                                                   path_save = path_target_export, 
+                                                                   file_name = paste0("FPCA_Test_", atlas_name))
       
       # train & validation
       all_roi_FPCA_train_validation = list()
@@ -453,11 +387,17 @@ apply_FPCA_to_all_measures = function(path_all_splitted_subjects,
         all_roi_FPCA_train_validation[[paste0("Fold_", i)]] = FPCA_train_valid_every_roi(smoothed_results, 
                                                                                          train_rid = train_data$RID, 
                                                                                          valid_rid = validation_data$RID, 
-                                                                                         path_export = path_target_export, 
+                                                                                         path_save = path_target_export, 
                                                                                          file_name = paste0("FPCA_Train & Validation_Fold_", i, "_",atlas_name))
       }
+        
+      combined_results[["FPCA_Train & Validation"]] = all_roi_FPCA_train_validation
     }
+    
   }
+  
+  return(combined_results)
+  
 }
 
 

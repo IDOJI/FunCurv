@@ -5,8 +5,3 @@ apply_FPCA_to_all_measures(path_all_splitted_subjects,
                            path_all_smoothed_results,
                            path_export,
                            atlas_name = "AAL3")
-
-
-
-
-
