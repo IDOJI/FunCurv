@@ -334,7 +334,7 @@ apply_FPCA_to_all_measures = function(path_all_splitted_subjects,
     target_groups = basename(path_target_groups)
     
     for(path_target_measure in paths_target_measures){
-      # path_target_measure = paths_target_measures[2]
+      # path_target_measure = paths_target_measures[1]
       target_measure = basename(path_target_measure)
       
       path_target_export = file.path(path_export, paste0(target_groups, "___", target_measure))

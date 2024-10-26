@@ -14,228 +14,95 @@
 
 
 ## 🟩 Group penalty ================================================================================================
-path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARCWSF_Fisher Z FC/FPCA_Train_AAL3.rds"
-data = readRDS(path_data)
-group_numbers = list()
+lambdas = exp(seq(-6, 0, length.out = 100))
+alphas = seq(0, 1, length.out = 20)
+alphas = alphas[alphas!=0]
 
-path_subjects_list = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/2.Split train and test data/AD, CN/all_train_data_seed_4649.rds"
-subjects_list = readRDS(path_subjects_list)
-y = subjects_list$DIAGNOSIS_FINAL %>% as.factor
+path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARglobalCWSF_Fisher Z FC"
+path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARglobalCWSF_zReHo"
+path_splitted_subjects = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/2.Split train and test data"
+path_save = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/2.Classification with penalized logistic regression using FPC scores"
 
-
-fpca_scores_train = lapply(seq_along(data), function(i){
-  x = data[[i]]
-  scores  = x$fpca_scores_train %>% select(-RID)
-  group_numbers[[i]] <<- rep(i, ncol(scores))
-  return(scores)
-}) %>% do.call(bind_cols, .)
-X = cbind(RID = data$ROI_001$fpca_scores_train$RID, fpca_scores_train)
-group = group_numbers %>% unlist
-
-# grpreg logistic regression (group lasso) example
-
-# Load the required library
-library(grpreg)
-
-y_new = as.numeric(y == "Dementia")
-
-# Fit a logistic regression model using group lasso penalty
-fit <- grpreg(X = fpca_scores_train, 
-              y = y_new, 
-              group = group, penalty = "grLasso", family = "binomial")
-
-# Plot the regularization path
-plot(fit)
-
-# Select the optimal lambda using AIC or BIC
-lambda_opt <- grpreg::select(fit, criterion = "AIC")
-
-# 필요한 패키지 설치 및 로드
-if (!requireNamespace("pROC", quietly = TRUE)) install.packages("pROC")
-if (!requireNamespace("PRROC", quietly = TRUE)) install.packages("PRROC")
-library(pROC)
-library(PRROC)
-
-# 새로운 테스트 데이터 (예시)
-set.seed(123)
-X_test <- matrix(rnorm(100 * 20), 100, 20)  # 100개의 샘플, 20개의 변수
-y_test <- rbinom(100, 1, 0.5)  # 0과 1로 구성된 이진 레이블
-
-# 모델을 사용하여 예측 확률 계산
-
-# Generate new test data
-data_test = readRDS("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARCWSF_Fisher Z FC/FPCA_Test_AAL3.rds")
-
-test_subjects = readRDS("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/2.Split train and test data/AD, CN/test_seed_4649.rds")
-y_test = as.numeric(test_subjects$DIAGNOSIS_FINAL == "Dementia")
-
-group_numbers_test = list()
-fpca_scores_test = lapply(seq_along(data_test), function(i){
-  x = data_test[[i]]
-  scores  = x$fpca_scores_train %>% select(-RID)
-  group_numbers_test[[i]] <<- rep(i, ncol(scores))
-  return(scores)
-}) %>% do.call(bind_cols, .)
-X_test = cbind(RID = data_test$ROI_001$fpca_scores_train, fpca_scores_test)
-group_test = group_numbers_test %>% unlist
-
-# Make predictions (probabilities) on the test data
-dim(fpca_scores_test)
-dim(fpca_scores_train)
-pred_prob <- predict(fit, fpca_scores_test, type = "response")
-
-# Calculate AUC
-roc_curve <- roc(y_test, pred_prob)
-auc_value <- auc(roc_curve)
-cat("AUC:", auc_value, "\n")
-
-# Calculate PR-AUC
-pr_curve <- pr.curve(scores.class0 = pred_prob[y_test == 1], 
-                     scores.class1 = pred_prob[y_test == 0], 
-                     curve = TRUE)
-cat("PR-AUC:", pr_curve$auc.integral, "\n")
-
-# Plot the ROC curve
-plot(roc_curve, main = "ROC Curve")
-
-# Plot the Precision-Recall curve
-plot(pr_curve, main = "Precision-Recall Curve")
-
-
-
-
-
-
-
-
-
-
-
-path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/FunImgARCWSF_FC/AAL3"
-path_subjects_list = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/1.Subjects List/9.MT1-EPI-Merged-Subjects-List.csv"
-
-# subjects list
-subjects_list = read.csv(path_subjects_list)
-
-
-# path data list
-path_fold_data = list.files(path_data, pattern = "fold", full.names = T)
-names_fold_data = get_file_names_without_extension(path_data, "fold")
-path_full_train_data = list.files(path_data, pattern = "train", full.names = T)
-path_test_data = list.files(path_data, pattern = "test", full.names = T)
-
-
-# Load Data
-fold_data = lapply(path_fold_data, readRDS) %>% setNames(names_fold_data)
-train_data = readRDS(path_full_train_data)
-test_data = readRDS(path_test_data)
-
-
-# input composition
-X_folds <- list()
-y_folds <- list()
-group_folds <- list()
-
-for(i in seq_along(fold_data)){
+group_penalty = TRUE
+penalized_logistic_train_test = function(path_data, 
+                                         path_splitted_subjects,
+                                         group_penalty,
+                                         alphas,
+                                         lambdas,
+                                         path_save){
   
-  ith_fold = fold_data[[i]]
+  # Fold
+  fold_results = penalized_logistic_grid_fold(path_data, 
+                                              path_splitted_subjects,
+                                              group_penalty = TRUE,
+                                              alphas,
+                                              lambdas, 
+                                              path_save)
   
-  ith_fold_train_FPC = ith_fold$fold_1_Train_FPC_Scores
-  ith_fold_validation_FPC = ith_fold$fold_1_Validation_FPC_Scores
+  # Find Optimal Combination
+  extract_optimal_results = function(fold_results){
+    
+    create_alpha_lambda_dataframe <- function(input_vector) {
+      # 정규 표현식을 사용하여 alpha와 lambda 값을 추출
+      alpha_values <- as.numeric(sub(".*alpha_([0-9.]+)_lambda_.*", "\\1", input_vector))
+      lambda_values <- as.numeric(sub(".*lambda_([0-9.]+)", "\\1", input_vector))
+      
+      # 데이터프레임 생성
+      df <- data.frame(alpha = alpha_values, lambda = lambda_values)
+      return(df)
+    }
+    hyperparameters_combination = fold_results$fitting_results[[1]] %>% names
+    hyper_parameters_df = create_alpha_lambda_dataframe(hyperparameters_combination)
+    
+    metrics = fold_results$metrics
+    
+    optimal_metrics = list()
+    
+    
+    # ROC AUC
+    ROC_AUC_mean = metrics$ROC_AUC$Mean
+    ROC_AUC_mean_max = ROC_AUC_mean %>% max
+    ind_ROC_AUC_mean_max = which(ROC_AUC_mean == ROC_AUC_mean_max)
+    selected_ROC_AUC_max = metrics$ROC_AUC[ind_ROC_AUC_mean_max, ] 
+    if(length(ind_ROC_AUC_mean_max) > 1){
+      selected_ROC_AUC_max = selected_ROC_AUC_max[which.min(selected_ROC_AUC_max$SD), ]
+    }
+    optimal_metrics[["ROC_AUC_max"]] = selected_ROC_AUC_max
+    hyper_parameters_df
+    
+    # PR AUC
+    PR_AUC_mean = metrics$PR_AUC$Mean
+    ind_PR_AUC_mean_max = which.max(PR_AUC_mean)
+    selected_PR_AUC_max = metrics$PR_AUC[ind_PR_AUC_mean_max, ] 
+    if(length(ind_PR_AUC_mean_max) > 1){
+      selected_PR_AUC_max = selected_PR_AUC_max[which.min(selected_PR_AUC_max$SD), ]
+    }
+    optimal_metrics[["PR_AUC_max"]] = cbind(selected_PR_AUC_max, ind)
+    
+    # F1 score
+    if(nrow(metrics$F1_Score) > 1){
+      F1_Score_mean = metrics$F1_Score$Mean
+      ind_F1_Score_mean_max = which.max(F1_Score_mean)
+      selected_F1_Score_max = metrics$F1_Score[ind_F1_Score_mean_max,]
+      optimal_metrics[["F1_Score_max"]] = selected_F1_Score_max
+    }  
+    
+    return(optimal_metrics)
+  }
   
-  ith_fold_train_subjects = subjects_list %>% 
-    filter(paste0("RID_", RID) %in% rownames(ith_fold_train_FPC))
-  ith_fold_validation_subjects = subjects_list %>% 
-    filter(paste0("RID_", RID) %in% rownames(ith_fold_validation_FPC))
   
-  X_folds[[i]] = list(train = ith_fold_train_FPC, val = ith_fold_validation_FPC)
-  y_folds[[i]] = list(train = ith_fold_train_subjects$DIAGNOSIS_FINAL)
+  names(metrics)
+  metrics$F1_Score
+  extract_optimal_results
+  
+  # Test results
+  
+  
+  # Return
+  
+  
+    
 }
-
-
-
-# Fold 데이터 생성 (Train/Validation 데이터 분할)
-folds <- 5
-for (i in 1:folds) {
-  # i=1
-  idx <- sample(1:n, size = n/folds)
-  X_folds[[i]] <- list(train = X[-idx, ], val = X[idx, ])
-  y_folds[[i]] <- list(train = y[-idx], val = y[idx])
-  group_folds[[i]] <- group
-}
-
-
-# Hyperparameter 튜닝 함수 실행
-results <- fit_hyperparameters_classification(
-  X_folds = X_folds,
-  y_folds = y_folds,
-  group_folds = group_folds,
-  family = "binomial",
-  penalties = c("grLasso", "grMCP"),
-  alphas = c(0.5, 1),
-  save_plots = TRUE,
-  plot_dir = "hyperparam_performance_plots",  # 플롯을 저장할 디렉토리
-  save_results = TRUE,
-  results_filename = "hyperparam_tuning_results.rds"  # 결과를 저장할 RDS 파일명
-)
-
-# 저장된 RDS 파일 불러오기
-loaded_results <- readRDS("hyperparam_tuning_results.rds")
-
-# 결과 확인
-print(loaded_results)
-
-
-
-
-
-
-# 데이터 준비
-data(Birthwt)
-X <- Birthwt$X    # 예측 변수
-y <- Birthwt$low  # 이진 반응 변수
-group <- Birthwt$group  # 그룹 정보
-
-# 함수 호출
-results <- fit_multiple_penalties(
-  X = X,
-  y = y,
-  group = group,
-  family = "binomial",
-  alpha = 0.8,
-  save_plots = TRUE,
-  plot_dir = "my_plots",
-  plot_names = c("grLasso" = "Lasso_Plot", "grMCP" = "MCP_Plot", "grSCAD" = "SCAD_Plot"),
-  save_results = TRUE,
-  results_filename = "model_results.rds"
-)
-
-
-
-# 함수 사용 예시
-data(Birthwt)
-X <- Birthwt$X    # Predictor variables
-y <- Birthwt$low  # Binary response variable (low birth weight)
-group <- Birthwt$group  # Grouping for the predictors
-
-# 함수 호출
-results <- fit_multiple_penalties(X, 
-                                  y, 
-                                  group, 
-                                  family = "binomial", 
-                                  save_plots = TRUE, 
-                                  plot_dir = "my_plots")
-
-
-
-
-
-
-
-
-
-
-
 
 
 
