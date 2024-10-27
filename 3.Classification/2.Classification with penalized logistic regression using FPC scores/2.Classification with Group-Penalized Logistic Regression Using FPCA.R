@@ -9,9 +9,18 @@
 
 # 🟨 FPCA만 사용한 경우 ===========================================================================================
 ## 🟩 Non-group penalty ================================================================================================
+tmp = readRDS("E:/FunCurv/3.Classification/2.Classification with penalized logistic regression using FPC scores/AD, CN___FunImgARCWSF_zDegreeCentrality_PositiveBinarizedSumBrainMap/Classification_GroupPen_Train.rds")
 
+tmp2 = readRDS("E:/FunCurv/3.Classification/2.Classification with penalized logistic regression using FPC scores/AD, CN___FunImgARCWSF_zDegreeCentrality_PositiveWeightedSumBrainMap/Classification_GroupPen_Train.rds")
 
+tmp %>% class
+tmp$metrics$PR_AUC$Mean %>% max
+tmp2$metrics$PR_AUC %>% max
+tmp$metrics$F1_Score
+tmp2$metrics$F1_Score
 
+tmp2$metrics$PR_AUC$Mean %>% unique() %>% sort()
+plot(tmp2$metrics$PR_AUC$Mean, type = "l")
 
 ## 🟩 Group penalty ================================================================================================
 lambdas = exp(seq(-6, 3, length.out = 200))
