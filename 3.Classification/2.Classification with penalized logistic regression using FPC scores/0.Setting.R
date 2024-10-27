@@ -467,16 +467,18 @@ penalized_logistic_grid = function(train_X, train_y, groups = NULL, alphas, lamb
 }
 
 penalized_logistic_grid_fold = function(path_data, 
-                                         path_splitted_subjects,
-                                         group_penalty = TRUE,
-                                         alphas,
-                                         lambdas,
-                                         path_save = NULL){
+                                        path_splitted_subjects,
+                                        group_penalty = TRUE,
+                                        alphas,
+                                        lambdas,
+                                        path_save = NULL){
   
   # Define final results save path
-  path_final_results = file.path(path_save, basename(path_data), paste0("Classification", 
-                                                                ifelse(group_penalty, "_GroupPen", "_Pen", "_Train"), 
-                                                                ".rds"))
+  path_save_new = file.path(path_save, basename(path_data))
+  dir.create(path_save_new, showWarnings = F, recursive = T)
+  path_final_results = file.path(path_save_new, 
+                                 paste0("Classification", ifelse(group_penalty, "_GroupPen", "_Pen"), "_Train", ".rds")
+                                 )
   
   # Check if final results file already exists; if so, load and return
   if (file.exists(path_final_results)) {
@@ -498,20 +500,16 @@ penalized_logistic_grid_fold = function(path_data,
   
   fold_results = list()
   
-  path_fold_save = file.path(path_save, basename(path_data))
-  
-  dir.create(path_fold_save, showWarnings = FALSE, recursive = TRUE)
-  
   # Model fitting
   for (k in seq_along(path_fold)) {
-    
     # Define the save path for each fold result
-    path_fold_save_file = file.path(path_fold_save, paste0(k, "th_fold.rds"))
+    path_fold_save_file = file.path(path_save_new, paste0("the_", k, "th_fold.rds"))
     
     # Check if fold result file exists; if so, load and skip
+    fold_item_name = paste0("the_", k, "th_fold")
     if (file.exists(path_fold_save_file)) {
       
-      fold_results[[paste0(k, "th_fold")]] = readRDS(path_fold_save_file)
+      fold_results[[fold_item_name]] = readRDS(path_fold_save_file)
       
       cat(green(sprintf("Fold %d already exists. Loaded saved results.\n", k)))
       
@@ -539,7 +537,7 @@ penalized_logistic_grid_fold = function(path_data,
     }
     
     # Logistic regression with penalized grid search
-    fold_results[[paste0(k, "th_fold")]] = penalized_logistic_grid(
+    fold_results[[fold_item_name]] = penalized_logistic_grid(
       train_X = kth_fold_scores$train_scores %>% dplyr::select(-RID) %>% as.matrix(),
       train_y = diagnosis$diagnosis_train,
       alphas = alphas,
@@ -551,7 +549,7 @@ penalized_logistic_grid_fold = function(path_data,
     )
     
     # Save the results for the current fold
-    saveRDS(fold_results[[paste0(k, "th_fold")]], path_fold_save_file)
+    saveRDS(fold_results[[fold_item_name]], path_fold_save_file)
     
     # Completion message for each fold
     cat(red(sprintf("Fold %d has completed.\n", k)))
@@ -573,6 +571,7 @@ penalized_logistic_grid_fold = function(path_data,
   results = extract_summary_metrics(fold_results_filtered)
   final_results = list(fitting_results = fold_results_filtered, metrics = results)
   
+  
   # Save final results
   if (!is.null(path_save)) {
     # Save final results
@@ -582,9 +581,9 @@ penalized_logistic_grid_fold = function(path_data,
     cat(green("Final results have been successfully saved to:"), path_final_results, "\n")
   }
   
-  # Delete temporary fold result files
-  unlink(path_fold_save, recursive = TRUE, force = TRUE)
   
+  # Delete each fold file
+  list.files(path_save_new, full.names = T, pattern = "th_fold") %>% file.remove
   return(final_results)
 }
 

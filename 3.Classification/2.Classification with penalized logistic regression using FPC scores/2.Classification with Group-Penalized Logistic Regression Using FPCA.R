@@ -14,7 +14,7 @@
 
 
 ## 🟩 Group penalty ================================================================================================
-lambdas = exp(seq(-6, 0, length.out = 100))
+lambdas = exp(seq(-6, 3, length.out = 200))
 alphas = seq(0, 1, length.out = 20)
 alphas = alphas[alphas!=0]
 
@@ -22,6 +22,8 @@ path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FP
 path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARglobalCWSF_zReHo"
 path_splitted_subjects = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/2.Split train and test data"
 path_save = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/2.Classification with penalized logistic regression using FPC scores"
+
+path = "E:/FunCurv/3.Classification/1.FPCA"
 
 group_penalty = TRUE
 penalized_logistic_train_test = function(path_data, 
@@ -31,13 +33,23 @@ penalized_logistic_train_test = function(path_data,
                                          lambdas,
                                          path_save){
   
+  paths_data = list.files(path, full.names=T)
+  path_splitted_subjects = path_splitted_subjects %>% set_output_path
+  path_save = path_save %>% set_output_path()
+  
+  
+  
   # Fold
-  fold_results = penalized_logistic_grid_fold(path_data, 
-                                              path_splitted_subjects,
-                                              group_penalty = TRUE,
-                                              alphas,
-                                              lambdas, 
-                                              path_save)
+  test = lapply(paths_data, function(path_data){
+    
+    fold_results = penalized_logistic_grid_fold(path_data, 
+                                                path_splitted_subjects,
+                                                group_penalty = TRUE,
+                                                alphas,
+                                                lambdas, 
+                                                path_save)
+    
+  })
   
   # Find Optimal Combination
   extract_optimal_results = function(fold_results){
