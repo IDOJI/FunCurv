@@ -3,55 +3,47 @@
 
 
 ## 🟩 Group penalty ================================================================================================
-
-
-
-
-# 🟨 FPCA만 사용한 경우 ===========================================================================================
 ## 🟩 Non-group penalty ================================================================================================
-tmp = readRDS("E:/FunCurv/3.Classification/2.Classification with penalized logistic regression using FPC scores/AD, CN___FunImgARCWSF_zDegreeCentrality_PositiveBinarizedSumBrainMap/Classification_GroupPen_Train.rds")
-
-tmp2 = readRDS("E:/FunCurv/3.Classification/2.Classification with penalized logistic regression using FPC scores/AD, CN___FunImgARCWSF_zDegreeCentrality_PositiveWeightedSumBrainMap/Classification_GroupPen_Train.rds")
-
-tmp %>% class
-tmp$metrics$PR_AUC$Mean %>% max
-tmp2$metrics$PR_AUC %>% max
-tmp$metrics$F1_Score
-tmp2$metrics$F1_Score
-
-tmp2$metrics$PR_AUC$Mean %>% unique() %>% sort()
-plot(tmp2$metrics$PR_AUC$Mean, type = "l")
 
 ## 🟩 Group penalty ================================================================================================
 lambdas = exp(seq(-6, 3, length.out = 200))
 alphas = seq(0, 1, length.out = 20)
 alphas = alphas[alphas!=0]
 
-path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARglobalCWSF_Fisher Z FC"
-path_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARglobalCWSF_zReHo"
-path_splitted_subjects = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/2.Split train and test data"
-path_save = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/2.Classification with penalized logistic regression using FPC scores"
+# path_splitted_subjects = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/2.Split train and test data"
+# path_splitted_subjects = "C:/Users/clair/Dropbox/✴️DataAnalysis/FunCurv/1.Data Indexing/2.Split train and test data"
+path_splitted_subjects <- "C:/Users/clair/OneDrive/바탕 화면/FunCurv_data/1.Data Indexing/2.Split train and test data"
 
-path = "E:/FunCurv/3.Classification/1.FPCA"
+
+
+# path_FPCA = "E:/FunCurv/3.Classification/1.FPCA"
+# path_FPCA <- "C:/Users/clair/Dropbox/✴️DataAnalysis/FunCurv/3.Classification/1.FPCA_2"
+path_FPCA = "C:/Users/clair/OneDrive/바탕 화면/FunCurv_data/3.Classification/1.FPCA"
+
+
+# path_save = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/2.Classification with penalized logistic regression using FPC scores"
+path_save <- "C:/Users/clair/Dropbox/✴️DataAnalysis/FunCurv/3.Classification/2.Classification with penalized logistic regression using FPC scores"
+path_save = "C:/Users/clair/OneDrive/바탕 화면/FunCurv_data/3.Classification/2.Classification with penalized logistic regression using FPC scores"
+
 
 group_penalty = TRUE
-penalized_logistic_train_test = function(path_data, 
+
+
+penalized_logistic_train_test = function(path_FPCA, 
                                          path_splitted_subjects,
                                          group_penalty,
                                          alphas,
                                          lambdas,
                                          path_save){
   
-  paths_data = list.files(path, full.names=T)
+  path_FPCA_list = list.files(path_FPCA, full.names=T)
   path_splitted_subjects = path_splitted_subjects %>% set_output_path
   path_save = path_save %>% set_output_path()
   
-  
-  
   # Fold
-  test = lapply(paths_data, function(path_data){
+  test = lapply(path_FPCA_list, function(path_ith_FPCA){
     
-    fold_results = penalized_logistic_grid_fold(path_data, 
+    fold_results = penalized_logistic_grid_fold(path_ith_FPCA, 
                                                 path_splitted_subjects,
                                                 group_penalty = TRUE,
                                                 alphas,
