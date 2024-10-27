@@ -16,7 +16,7 @@ install_packages = function(packages, load=TRUE) {
 }
 
 List.list = list()
-List.list[[1]] = visual = c("ggpubr", "ggplot2", "ggstatsplot", "ggsignif", "rlang", "RColorBrewer", "reshape2", "PRROC")
+List.list[[1]] = visual = c("crayon", "ggpubr", "ggplot2", "ggstatsplot", "ggsignif", "rlang", "RColorBrewer", "reshape2", "PRROC")
 List.list[[2]] = stat = c("fda", "MASS", "caret", "pROC", "grpreg")
 List.list[[3]] = data_handling = c("tidyverse", "dplyr", "clipr", "tidyr", "readr", "caret", "readxl")
 List.list[[4]] = qmd = c("janitor", "knitr")

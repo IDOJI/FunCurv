@@ -28,6 +28,10 @@ path_save = "C:/Users/clair/OneDrive/바탕 화면/FunCurv_data/3.Classification
 
 group_penalty = TRUE
 
+#########################################################
+path_FPCA_list = list.files(path_FPCA, full.names=T)
+path_splitted_subjects = path_splitted_subjects %>% set_output_path
+path_save = path_save %>% set_output_path()
 
 penalized_logistic_train_test = function(path_FPCA, 
                                          path_splitted_subjects,
@@ -42,7 +46,7 @@ penalized_logistic_train_test = function(path_FPCA,
   
   # Fold
   test = lapply(path_FPCA_list, function(path_ith_FPCA){
-    
+    path_ith_FPCA = path_FPCA_list[7]
     fold_results = penalized_logistic_grid_fold(path_ith_FPCA, 
                                                 path_splitted_subjects,
                                                 group_penalty = TRUE,
