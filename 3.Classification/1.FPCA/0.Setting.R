@@ -14,10 +14,6 @@ install_packages = function(packages, load=TRUE) {
     }
   }
 }
-tmp = readRDS("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARCWSF_Fisher Z FC/FPCA_Train_and_TestAAL3.rds")
-
-
-
 
 List.list = list()
 List.list[[1]] = visual = c("crayon", "ggpubr", "ggplot2", "ggstatsplot", "ggsignif", "rlang", "RColorBrewer", "reshape2", "PRROC")
@@ -149,14 +145,17 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
     list.files(pattern = "\\.rds$", full.names = T, recursive = T) %>% 
     readRDS()
   
+  
   ## 🟨 folding data by stratified k-fold CV =====================================================================================
   demographics_new <- demographics %>% 
     filter(EPI___BAND.TYPE == "SB") %>% 
     filter(DIAGNOSIS_FINAL %in% target_diagnosis)
   
+  
   # stratified k-fold cross-validation 설정
   set.seed(fold_seed)
   folds <- createFolds(demographics_new$DIAGNOSIS_FINAL, k = n_fold, list = TRUE, returnTrain = TRUE)
+  
   
   # 각 fold에 대해 훈련 및 테스트 데이터 나누기
   folded_data <- list()
@@ -164,6 +163,7 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
     train_index <- folds[[i]]
     folded_data[[paste0("Fold_", i)]] <- list(train_demo = demographics_new[train_index, ], test_demo = demographics_new[-train_index, ])
   }
+  
   
   ## 🟨 FPCA 수행 =======================================================================================================
   fpca_train_list <- list()
@@ -174,15 +174,17 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
   start_time <- Sys.time()
   
   for (ith_fold in names(folded_data)) {
+    # ith_fold = names(folded_data)[1]
     fold_start_time <- Sys.time()
     
     ith_fold_demo <- folded_data[[ith_fold]]
     ith_fold_fpca_train <- list()
     ith_fold_fpca_scores_train <- list()
     ith_fold_fpca_scores_test <- list()
-    ith_fold_fpca_scores_rep <- c()
+    ith_fold_fpca_scores_rep <- list()
     
     for (kth_roi in names(smoothed_data)) {
+      # kth_roi = names(smoothed_data)[1]
       roi_start_time <- Sys.time()
       
       cat(sprintf("Fold: %s, ROI: %s - FPCA 수행 중...\n", ith_fold, kth_roi))
@@ -207,24 +209,46 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
       selected_harm <- which(cumulative_variance >= portion)[1]
       
       selected_harmonics <- kth_train_fpca_results$harmonics[1:selected_harm]
-      ith_fold_fpca_scores_train[[kth_roi]] <- kth_train_fpc_scores <- as.data.frame(kth_train_fpca_results$scores[, 1:selected_harm])
-      colnames(kth_train_fpc_scores) <- paste0(kth_roi, "_FPC_", seq_len(ncol(kth_train_fpc_scores)))
-      ith_fold_fpca_scores_rep <- rep(which(names(smoothed_data) %in% kth_roi), times = ncol(kth_train_fpc_scores))
+      kth_train_fpc_scores <- as.data.frame(kth_train_fpca_results$scores[, 1:selected_harm])
       
-      ith_fold_fpca_scores_test[[kth_roi]] <- kth_test_fpc_scores <- extract_fpca_scores_of_test_data(fd_obj = ith_fold_smoothed_results_test, pca.fd_obj = kth_train_fpca_results, nharm = selected_harm)
+      
+      
+      kth_test_fpc_scores <- extract_fpca_scores_of_test_data(fd_obj = ith_fold_smoothed_results_test, 
+                                                              pca.fd_obj = kth_train_fpca_results, 
+                                                              nharm = selected_harm)
+      
+      colnames(kth_test_fpc_scores) = colnames(kth_train_fpc_scores) <- paste0(kth_roi, "_FPC_", seq_len(ncol(kth_train_fpc_scores)))
+      
+      ith_fold_fpca_scores_train[[kth_roi]] <- kth_train_fpc_scores
+      ith_fold_fpca_scores_test[[kth_roi]] <- kth_test_fpc_scores
+      ith_fold_fpca_scores_rep[[kth_roi]] <- rep(which(names(smoothed_data) %in% kth_roi), times = ncol(kth_train_fpc_scores))
       
       roi_end_time <- Sys.time()
       cat(sprintf("Fold: %s, ROI: %s - 완료. 소요 시간: %.2f 초\n", ith_fold, kth_roi, as.numeric(difftime(roi_end_time, roi_start_time, units = "secs"))))
     }
     
     fpca_train_list[[ith_fold]] <- ith_fold_fpca_train
-    fpca_scores_train_list[[ith_fold]] <- ith_fold_fpca_scores_train %>% 
-      do.call(bind_cols, .) %>% 
-      cbind(RID = ith_fold_demo$train_demo$RID, DX = ith_fold_demo$train_demo$DIAGNOSIS_FINAL, .)
-    fpca_scores_test_list[[ith_fold]] <- ith_fold_fpca_scores_test %>% 
-      do.call(bind_cols, .) %>% 
-      cbind(RID = ith_fold_demo$test_demo$RID, DX = ith_fold_demo$test_demo$DIAGNOSIS_FINAL, .)
-    fpca_scores_rep_list[[ith_fold]] <- ith_fold_fpca_scores_rep
+    
+    # 열 이름 유지한 채로 열 기준 결합
+    fpca_scores_train_list[[ith_fold]] <- ith_fold_fpca_scores_train %>%
+      # 원소의 열 이름을 고정하여 bind_cols 할 때 그대로 유지되도록 설정
+      purrr::map(~ setNames(.x, colnames(.x))) %>% 
+      bind_cols() %>% 
+      cbind(RID = ith_fold_demo$train_demo$RID, DX = ith_fold_demo$train_demo$DIAGNOSIS_FINAL, .) %>%
+      as_tibble()
+    
+    
+    ith_fold_fpca_scores_test$ROI_001 %>% names
+    # 열 이름 유지한 채로 열 기준 결합
+    fpca_scores_test_list[[ith_fold]] <- ith_fold_fpca_scores_test %>%
+      lapply(as.data.frame) %>% 
+      # 원소의 열 이름을 고정하여 bind_cols 할 때 그대로 유지되도록 설정
+      purrr::map(~ setNames(.x, colnames(.x))) %>% 
+      bind_cols() %>% 
+      cbind(RID = ith_fold_demo$test_demo$RID, DX = ith_fold_demo$test_demo$DIAGNOSIS_FINAL, .) %>%
+      as_tibble()
+    
+    fpca_scores_rep_list[[ith_fold]] <- (ith_fold_fpca_scores_rep) %>% unlist %>% unname
     
     fold_end_time <- Sys.time()
     cat(sprintf("Fold: %s - 완료. 소요 시간: %.2f 초\n", ith_fold, as.numeric(difftime(fold_end_time, fold_start_time, units = "secs"))))
