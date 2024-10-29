@@ -129,6 +129,8 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
                                              save_path = NULL,
                                              fold_seed = 4649,
                                              n_fold = 5){
+  path_smoothed_data = path_smoothed_data %>% set_output_path
+  save_path = save_path %>% set_output_path
   
   # save_path가 NULL이 아닌 경우 파일 존재 여부 확인
   if (!is.null(save_path)) {
