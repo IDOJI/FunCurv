@@ -14,6 +14,10 @@ install_packages = function(packages, load=TRUE) {
     }
   }
 }
+tmp = readRDS("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARCWSF_Fisher Z FC/FPCA_Train_and_TestAAL3.rds")
+
+
+
 
 List.list = list()
 List.list[[1]] = visual = c("crayon", "ggpubr", "ggplot2", "ggstatsplot", "ggsignif", "rlang", "RColorBrewer", "reshape2", "PRROC")
@@ -66,526 +70,226 @@ get_file_names_without_extension = function(path_data, pattern = "fold") {
 
 
 
-
-
-# 🟧 Sub-functions =========================================================================
-extract_dignosis = function(path_subjects_train = NULL, 
-                            path_subjects_test = NULL,
-                            sub_train = NULL,
-                            sub_test = NULL,
-                            which_group_positive = "Dementia"){
+# 🟩 sub-functions for FPCA =========================================================================================================
+## 🟨 smoothing 결과에서 특정 RID 데이터만 추출
+extract_smoothed_fd_of_specific_rids <- function(fd_obj, rid){
+  rid_indices = paste0("RID_", sprintf("%04d", sort(rid)))
   
-  if(is.null(sub_train) && is.null(sub_test) && !is.null(path_subjects_train) && !is.null(path_subjects_test)){
-    sub_train = readRDS(path_subjects_train)
-    sub_test = readRDS(path_subjects_test)  
-  }
-  
-  
-  combined_results = list()
-  
-  combined_results$diagnosis_train = as.numeric(sub_train$DIAGNOSIS_FINAL == which_group_positive) %>% setNames(sub_train$RID)
-  combined_results$diagnosis_test = as.numeric(sub_test$DIAGNOSIS_FINAL == which_group_positive) %>% setNames(sub_test$RID)
-  combined_results$which_group_positive = which_group_positive
-  
-  return(combined_results)
-}
-
-
-extract_fpca_scores_and_group_numbers = function(path_fpca_train_test = NULL, 
-                                                 fpca_train_test = NULL){
-
-  if(is.null(fpca_train_test)){
-    fpca_train_test = readRDS(path_fpca_train_test)  
-  }  
-  
-  combined_results_list = list()
-  
-  train_scores_list = list()
-  test_scores_list = list()
-  train_numbers = list()
-  test_numbers = list()
-  
-  for(i in seq_along(fpca_train_test)){
-    ith_roi = fpca_train_test[[i]]
-    train_scores_list[[i]] = ith_roi$fpca_scores_train %>% dplyr::select(-RID)
-    test_scores_list[[i]] = ith_roi$fpca_scores_valid %>% dplyr::select(-RID)
+  # Extract the relevant smoothed coefficients for the specified subjects
+  # fdobj <- fdSmooth_obj$fd
+  fdobj = fd_obj
+  # Check if all requested rid_indices are present in the fdnames and coefficients
+  if(all(rid_indices %in% fdobj$fdnames$reps) && all(rid_indices %in% colnames(fdobj$coefs))) {  
     
-    train_numbers[[i]] = rep(i, ncol(train_scores_list[[i]]))
-    test_numbers[[i]] = rep(i, ncol(test_scores_list[[i]]))
-  }
-  
-  combined_results_list[["train_scores"]] = do.call(bind_cols, train_scores_list) %>% cbind(RID = fpca_train_test$ROI_001$fpca_scores_train$RID, .)
-  combined_results_list[["test_scores"]] = do.call(bind_cols, test_scores_list) %>% cbind(RID = fpca_train_test$ROI_001$fpca_scores_valid$RID, .)
-  combined_results_list[["train_numbers"]] = train_numbers %>% unlist
-  combined_results_list[["test_numbers"]] = test_numbers %>% unlist
-  
-  if(all(combined_results_list[["train_numbers"]] == combined_results_list[["test_numbers"]])){
-    combined_results_list[["train_numbers"]] = combined_results_list[["test_numbers"]] = NULL
-    combined_results_list[["group_numbers"]] = test_numbers %>% unlist
-  }else{
-    stop("the group numbers between train and test are different!")
-  }
-  
-  
-  return(combined_results_list)
-}
-
-
-# ROC_AUC와 PR_AUC 각각에 대해 결과 요약 데이터프레임을 추출하는 함수
-# ROC_AUC와 PR_AUC 각각에 대해 결과 요약 데이터프레임을 추출하는 함수
-extract_summary_metrics = function(fold_results) {
-  
-  # Initialize lists to store ROC_AUC and PR_AUC for each hyperparameter combination
-  
-  # Iterate over each fold
-  ROC_AUC = list()
-  PR_AUC = list()
-  F1_Score = list()
-  
-  for (fold in names(fold_results)) {
-    # fold = names(fold_results)[1]
-    each_fold_roc_auc_list = list()
-    each_fold_pr_auc_list = list()
-    each_fold_F1score_list = list()
-    
-    
-    # Iterate over each hyperparameter combination in the fold
-    for (param_name in names(fold_results[[fold]])) {
-      # param_name = names(fold_results[[fold]])[100]
-      selected_param_combination = fold_results[[fold]][[param_name]]
-      
-      # Check if ROC_AUC exists, otherwise add NA
-      each_fold_roc_auc_list[[param_name]] = selected_param_combination$ROC_AUC
-      each_fold_pr_auc_list[[param_name]] = selected_param_combination$PR_AUC
-      each_fold_F1score_list[[param_name]] = selected_param_combination$F1_Score
-    }
-    
-    
-    ROC_AUC[[fold]] = each_fold_roc_auc_list %>% 
-      sapply(function(x) {
-        x %>% unlist() %>% as.numeric()
-      }) %>%
-      as.data.frame() %>%
-      setNames(paste0(fold, "_ROC_AUC")) %>%
-      as_tibble()
-    
-    PR_AUC[[fold]] = each_fold_pr_auc_list %>%
-      sapply(function(x) {
-        x %>% unlist() %>% as.numeric()
-      }) %>%
-      as.data.frame() %>%
-      setNames(paste0(fold, "_PR_AUC")) %>%
-      as_tibble()
-    
-    F1_Score[[fold]] = each_fold_F1score_list %>%
-      sapply(function(x) {
-        x %>% unlist() %>% as.numeric()
-      }) %>%
-      as.data.frame() %>%
-      setNames(paste0(fold, "_F1_Score")) %>%
-      as_tibble()
-      
-    
-  }# Fold
-  
-  
-  mean_sd_by_row = function(data_list){
-    data_list %>% 
-      do.call(cbind, .) %>% 
-      rowwise() %>%
-      filter(all(!is.na(c_across(everything())))) %>%
-      mutate(
-        Mean = mean(c_across(everything()), na.rm = TRUE),
-        SD = sd(c_across(everything()), na.rm = TRUE)
-      ) %>%
-      ungroup()
-  }
-  
-  
-  F1_Score_df = F1_Score %>% mean_sd_by_row
-  ROC_AUC_df = ROC_AUC %>% mean_sd_by_row 
-  PR_AUC_df = PR_AUC %>% mean_sd_by_row 
-  
-  
-  return(list(ROC_AUC = ROC_AUC_df, 
-              PR_AUC = PR_AUC_df,
-              F1_Score = F1_Score_df))
-}
-
-
-
-# 🟨 Optimal model ============================================================================
-extract_optimal_results = function(metrics){
-  
-  values = sapply(results, function(x) {
-    if (is.list(x) && measure %in% names(x)) {
-      x[[measure]]
-    } else {
-      NULL
-    }
-  }) %>% unlist
-  
-  max_value = max(values)
-  ind = which(values == max_value)
-  
-  list(max_value = max_value, which_max_ind = ind) %>% return
-}
-
-
-
-
-
-
-
-# 🟩 penalized logistic regression ========================================================================================
-# penalized_logistic 함수 정의
-penalized_logistic = function(train_X, train_y, test_X, test_y, alpha, lambda, plotting = FALSE){
-  
-  # Save results
-  results_list = list()
-  results_list[["y_real"]] = test_y
-  results_list[["hyper-para_alpha"]] = alpha
-  results_list[["hyper-para_lambda"]] = lambda
-  
-  # Model fitting
-  results_list[["fitted_model"]] = fit = glmnet(x = as.matrix(train_X), y = train_y, 
-                                                  family = "binomial", alpha = alpha, 
-                                                  lambda = lambda)
-  results_list[["pred_prob"]] = pred_prob = as.numeric(predict(fit, newx = as.matrix(test_X), 
-                                                                 type = "response"))
-  
-  # Check if all predicted probabilities are the same
-  if (length(unique(pred_prob)) != 1) {
-    # Calculate AUC
-    results_list[["ROC_curve"]] = roc_curve = roc(test_y, pred_prob, quiet = T)
-    results_list[["ROC_AUC"]] = auc_value = auc(roc_curve) %>% unlist %>% as.numeric
-    
-    # Calculate PR-AUC
-    results_list[["PR_curve"]] = pr_curve = pr.curve(scores.class0 = pred_prob[test_y == 1], 
-                                                       scores.class1 = pred_prob[test_y == 0], 
-                                                       curve = TRUE)
-    results_list[["PR_AUC"]] = pr_curve$auc.integral
-    
-    # Convert probabilities to binary predictions using 0.5 threshold
-    pred_class = ifelse(pred_prob >= 0.5, 1, 0)
-    
-    # Calculate Precision, Recall, and F1 Score
-    tp = sum(pred_class == 1 & test_y == 1)
-    fp = sum(pred_class == 1 & test_y == 0)
-    fn = sum(pred_class == 0 & test_y == 1)
-    
-    precision = ifelse((tp + fp) > 0, tp / (tp + fp), 0)
-    recall = ifelse((tp + fn) > 0, tp / (tp + fn), 0)
-    f1_score = ifelse((precision + recall) > 0, 2 * (precision * recall) / (precision + recall), NA)
-    
-    results_list[["F1_Score"]] = f1_score
-    
-    # ROC Curve 캡처하여 저장
-    if(plotting){
-      plot(roc_curve, main = "ROC Curve")
-      results_list[["ROC_curve_plot"]] = recordPlot()  # 현재 plot을 캡처하여 저장
-      
-      # PR Curve 캡처하여 저장
-      plot(pr_curve, main = "Precision-Recall Curve")
-      results_list[["PR_curve_plot"]] = recordPlot()   # 현재 plot을 캡처하여 저장  
-    }
-  }else{
-    
-    results_list[["ROC_curve"]] = NA
-    results_list[["ROC_AUC"]] = NA
-    results_list[["PR_curve"]] = NA
-    results_list[["PR_AUC"]] = NA 
-    results_list[["F1_Score"]] = NA
-    
-  }
-  return(results_list)
-}
-
-
-
-
-
-
-
-
-
-
-
-# 🟩 Group penalty logistic regression =========================================================================================================
-group_penalized_logistic = function(train_X, train_y, test_X, test_y, groups, 
-                               lambda = NULL, alpha, 
-                               plotting = FALSE){
-  
-  # Save results
-  results_list = list()
-  results_list[["y_real"]] = test_y
-  results_list[["hyper-para_lambda"]] = lambda
-  
-  # Model fitting using grpreg
-  if(is.null(lambda)){
-    results_list[["fitted_model"]] = fit = grpreg(X = as.matrix(train_X), 
-                                                    y = train_y, 
-                                                    group = groups, 
-                                                    penalty = "grLasso", 
-                                                    family = "binomial",
-                                                    alpha = alpha)  
-  }else{
-    results_list[["fitted_model"]] = fit = grpreg(X = as.matrix(train_X), 
-                                                    y = train_y, 
-                                                    group = groups, 
-                                                    penalty = "grLasso", 
-                                                    family = "binomial", 
-                                                    lambda = lambda,
-                                                    alpha = alpha)
-  }
-  
-  
-  
-  # Prediction on test set
-  results_list[["pred_prob"]] = pred_prob = as.numeric(predict(fit, as.matrix(test_X), type = "response"))
-  
-  # Check if all predicted probabilities are the same
-  if (length(unique(pred_prob)) != 1) {
-    # Calculate AUC
-    results_list[["ROC_curve"]] = roc_curve = roc(test_y, pred_prob, quiet = TRUE)
-    results_list[["ROC_AUC"]] = auc_value = as.numeric(auc(roc_curve))
-    
-    # Calculate PR-AUC
-    results_list[["PR_curve"]] = pr_curve = pr.curve(scores.class0 = pred_prob[test_y == 1], 
-                                                       scores.class1 = pred_prob[test_y == 0], 
-                                                       curve = TRUE)
-    results_list[["PR_AUC"]] = pr_curve$auc.integral
-    
-    # Convert probabilities to binary predictions using 0.5 threshold
-    pred_class = ifelse(pred_prob >= 0.5, 1, 0)
-    
-    # Calculate Precision, Recall, and F1 Score
-    tp = sum(pred_class == 1 & test_y == 1)
-    fp = sum(pred_class == 1 & test_y == 0)
-    fn = sum(pred_class == 0 & test_y == 1)
-    
-    precision = ifelse((tp + fp) > 0, tp / (tp + fp), 0)
-    recall = ifelse((tp + fn) > 0, tp / (tp + fn), 0)
-    f1_score = ifelse((precision + recall) > 0, 2 * (precision * recall) / (precision + recall), NA)
-    
-    results_list[["F1_Score"]] = f1_score
-    
-    # ROC Curve capture
-    if(plotting){
-      plot(roc_curve, main = "ROC Curve")
-      results_list[["ROC_curve_plot"]] = recordPlot()  # Store ROC plot
-      
-      # PR Curve capture
-      plot(pr_curve, main = "Precision-Recall Curve")
-      results_list[["PR_curve_plot"]] = recordPlot()   # Store PR plot
-    }
+    # Extract the smoothed functional data for the specified subjects
+    extracted_fd <- fd(coef = fdobj$coefs[, rid_indices], 
+                       basisobj = fdobj$basis, 
+                       fdnames = list(time = fdobj$fdnames$time, 
+                                      reps = rid_indices, 
+                                      values = fdobj$fdnames$values))  
+    return(extracted_fd)  
   } else {
-    # Assign NA if all predicted probabilities are the same
-    results_list[["ROC_curve"]] = NA
-    results_list[["ROC_AUC"]] = NA
-    results_list[["PR_curve"]] = NA
-    results_list[["PR_AUC"]] = NA
-    results_list[["F1_Score"]] = NA
+    # Raise an error if any rid_indices are not found
+    stop("Error: One or more specified RID indices are not found in the smoothed results.")
+  }
+}
+
+## 🟨 FD obj 뺄셈 정의
+subtract_fd_mean <- function(fd_obj, mean_fd) {
+  # 두 객체의 basis가 동일한지 확인
+  if (!identical(fd_obj$basis, mean_fd$basis)) {
+    stop("Both fd objects must have the same basis.")
   }
   
-  return(results_list)
+  # validation_fd_obj의 계수 행렬과 mean_function의 계수 행렬 가져오기
+  coef_obj <- fd_obj$coefs
+  mean_coef <- mean_fd$coefs
+  
+  # mean_function의 계수를 fd_obj의 피험자 수에 맞게 반복 확장
+  mean_coef_expanded <- matrix(
+    rep(mean_coef, ncol(coef_obj)),
+    nrow = nrow(coef_obj),
+    ncol = ncol(coef_obj)
+  )
+  
+  # 계수 행렬의 뺄셈 수행
+  new_coefs <- coef_obj - mean_coef_expanded
+  
+  # 새 fd 객체 생성
+  result_fd <- fd(coef = new_coefs, 
+                  basisobj = fd_obj$basis, 
+                  fdnames = fd_obj$fdnames)
+  
+  return(result_fd)
+}
+
+
+
+
+## 🟨 다른 FPCA harmonics에 따라 FPC score를 구하는 함수
+extract_fpca_scores_of_test_data = function(fd_obj, pca.fd_obj, nharm){
+  
+  # Validation 데이터 중심화 (Train 데이터의 평균 함수 사용)
+  centered_test_fd <- subtract_fd_mean(
+    fd_obj = fd_obj, 
+    mean_fd = pca.fd_obj$meanfd
+  )
+  
+  # Validation 데이터의 FPC 점수 계산
+  fpc_scores <- inprod(centered_test_fd, pca.fd_obj$harmonics)
+  
+  # 필요한 harmonic 개수만 선택
+  colnames(fpc_scores) <- paste0("FPC_", seq_len(ncol(fpc_scores)))
+  
+  return(fpc_scores[,1:nharm])
 }
 
 
 
 
 
+# 🟧 Classification by CV =========================================================================
+demographics = read.csv("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/1.Data Indexing/1.Subjects List/9.MT1-EPI-Merged-Subjects-List.csv")
+
+path_cv_data = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARCWSF_Fisher Z FC"
+path_cv_data_all = list.files(path_cv_data, full.names = T)
+cv_data = lapply(path_cv_data_all, readRDS) %>% setNames(tools::file_path_sans_ext(basename(path_cv_data_all)))
 
 
 
 
-# 🟪 Grid and Fold ======================================================================================================
-penalized_logistic_grid = function(train_X, train_y, groups = NULL, alphas, lambdas = NULL, test_X, test_y, plotting = FALSE) {
-  library(crayon)  
-  results = list()
+
+# SEX ? Age
+demographics$DIAGNOSIS_FINAL
+demographics %>% names
+demographics$SEARCH___SEX
+cbind(demographics$SEARCH___AGE)
+
+dim(demographics)
+
+demographics
+
+path_smoothed_results = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/2.Construction of curves by distance/4.Smoothing curves by B-spline basis expansion/FunImgARCWSF_Fisher Z FC"
+smoothed_data = path_smoothed_results %>% 
+  list.files(pattern = "\\.rds$", full.names = T, recursive = T) %>% 
+  readRDS()
+
+conduct_fpca_on_smoothed_results = function(fold_seed = 4649,
+                                            n_fold = 5,
+                                            demographics,
+                                            target_diagnosis = c("Dementia", "MCI"),
+                                            smoothed_data,
+                                            cv_data, 
+                                            alphas, 
+                                            lambdas){
+  ## 🟨 folding data by stratified k-fold CV =====================================================================================
+  demographics_new = demographics %>% 
+    filter(EPI___BAND.TYPE == "SB") %>% 
+    filter(DIAGNOSIS_FINAL %in% target_diagnosis)
   
-  for (alpha in alphas) {
-    # alpha = alphas[1]
-    for (lambda in lambdas %||% c(NULL)) {  # lambdas가 NULL일 때 NA로 설정
-      # lambda = lambdas[1]
-      # 각 조합을 고유한 이름으로 사용
-      param_name = if (is.null(lambda)) {
-        sprintf("alpha_%.4f_lambda_NULL", round(alpha, 4))
-      } else {
-        sprintf("alpha_%.4f_lambda_%.4f", round(alpha, 4), round(lambda, 4))
+  
+  # stratified k-fold cross-validation 설정
+  set.seed(fold_seed)  # 결과 재현성을 위한 시드 설정
+  
+  # stratified k-fold 분할 생성
+  folds <- createFolds(demographics_new$DIAGNOSIS_FINAL, 
+                       k = n_fold, 
+                       list = TRUE, 
+                       returnTrain = TRUE)
+  
+  
+  # 각 폴드에 대해 훈련 및 테스트 데이터를 나누고, 모델링 예시
+  folded_data = list()
+  for(i in 1:n_fold){
+    # i=1
+    # 훈련 데이터와 테스트 데이터 나누기
+    train_index <- folds[[i]]
+    folded_data[[paste0("Fold_", i)]] = list(train_demo = demographics_new[train_index, ], 
+                                             test_demo = demographics_new[-train_index, ])
+  }
+  
+  
+  
+  
+  
+  
+  ## 🟨 Extract smoothed data & apply FPCA =============================================================================
+  fpca_train_list = list()
+  fpca_scores_train_list = list()
+  fpca_scores_test_list = list()
+  fpca_scores_rep_list = list()
+  
+  for(ith_fold in names(folded_data)){
+     
+    ith_fold_demo = folded_data[[ith_fold]]
+    ith_fold_fpca_train = list()
+    ith_fold_fpca_scores_train = list()
+    ith_fold_fpca_scores_test = list()
+    ith_fold_fpca_scores_rep = c()
+    
+    for(kth_roi in names(smoothed_data)){
+      
+      kth_smoothed_data = smoothed_data[[kth_roi]]
+      kth_smoothed_fd = kth_smoothed_data$fdSmooth_obj$fd
+      ith_fold_smoothed_results_train = extract_smoothed_fd_of_specific_rids(fd_obj = kth_smoothed_fd, rid = ith_fold_demo$train_demo$RID)
+      ith_fold_smoothed_results_test = extract_smoothed_fd_of_specific_rids(fd_obj = kth_smoothed_fd, rid = ith_fold_demo$test_demo$RID)
+      
+      
+      # check RID
+      if(!all(ith_fold_smoothed_results_train$fdnames$reps == sort(ith_fold_smoothed_results_train$fdnames$reps))){
+        stop("!!! check RID")
+      }
+      if(!all(ith_fold_smoothed_results_test$fdnames$reps == sort(ith_fold_smoothed_results_test$fdnames$reps))){
+        stop("!!! check RID")
       }
       
-      # 실행 시간 측정 시작
-      start_time = Sys.time()
       
-      # 에러가 발생하면 현재 alpha와 lambda 값을 출력하고 함수 중단
-      tryCatch({
-        # 하이퍼파라미터 조합에 대해 penalized_logistic 함수 호출
-        if (is.null(groups)) {
-          results[[param_name]] = penalized_logistic(
-            train_X = train_X,
-            train_y = train_y,
-            test_X = test_X,
-            test_y = test_y,
-            alpha = alpha,
-            lambda = lambda,
-            plotting = plotting
-          )  
-        } else {
-          # lambda가 NULL일 때, group_penalized_logistic에서 자동 설정
-          results[[param_name]] = group_penalized_logistic(
-            train_X = train_X,
-            train_y = train_y,
-            test_X = test_X,
-            test_y = test_y,
-            groups = groups,
-            alpha = alpha,
-            lambda = if (is.null(lambda)) NULL else lambda,
-            plotting = plotting
-          )
-        }
-        
-        # 실행 시간 측정 종료
-        end_time = Sys.time()
-        elapsed_time = round(as.numeric(difftime(end_time, start_time, units = "secs")), 2)
-        
-        # 결과 메시지 출력
-        cat(green("Completed"), "with alpha =", yellow(alpha), 
-            if (!is.null(lambda)) paste("and lambda =", yellow(lambda)), 
-            "in", blue(elapsed_time), "seconds.\n")
-        
-      }, error = function(e) {
-        cat(red("Error occurred with alpha =", alpha), 
-            if (!is.null(lambda)) paste("and lambda =", lambda), "\n")
-        print(e)  # 에러 메시지 출력
-        results[[param_name]] = NA
-      })
+      # train 데이터에 대해 FPCA 수행
+      initial_nharm = 50
+      portion = 0.9
+      ith_fold_fpca_train[[kth_roi]] = kth_train_fpca_results = pca.fd(fdobj = ith_fold_smoothed_results_train, nharm = initial_nharm, centerfns = TRUE)
+      
+      
+      # 누적 분산 비율 계산 및 필요한 harmonic 개수 선택
+      cumulative_variance = cumsum(kth_train_fpca_results$varprop)
+      selected_harm = which(cumulative_variance >= portion)[1]
+      
+      
+      # 필요한 harmonic과 score 추출 (Train 데이터)
+      selected_harmonics <- kth_train_fpca_results$harmonics[1:selected_harm]
+      ith_fold_fpca_scores_train[[kth_roi]] = kth_train_fpc_scores = as.data.frame(kth_train_fpca_results$scores[, 1:selected_harm])
+      colnames(kth_train_fpc_scores) <- paste0(kth_roi, "_FPC_", seq_len(ncol(kth_train_fpc_scores)))
+      ith_fold_fpca_scores_rep = rep(which(names(smoothed_data) %in% kth_roi), times = ncol(kth_train_fpc_scores))
+      
+      
+      # FPCA scores of test data
+      ith_fold_fpca_scores_test[[kth_roi]] = kth_test_fpc_scores = extract_fpca_scores_of_test_data(fd_obj = ith_fold_smoothed_results_test, pca.fd_obj = kth_train_fpca_results, nharm = selected_harm)
     }
+    
+    fpca_train_list[[ith_fold]] = ith_fold_fpca_train
+    fpca_scores_train_list[[ith_fold]] = ith_fold_fpca_scores_train %>% do.call(bind_cols, .)
+    fpca_scores_test_list[[ith_fold]] = ith_fold_fpca_scores_test %>% do.call(bind_cols, .)
+    fpca_scores_rep_list[[ith_fold]] = ith_fold_fpca_scores_rep
+    
   }
+  fpca_scores = list(train = fpca_scores_train_list,
+                     test = fpca_scores_test_list,
+                     rep = fpca_scores_rep_list)
   
-  return(results)
+  
+  saveRDS(fpca_scores, file.path(save_path))
+  saveRDS(fpca_train_list, file.path(save_path))
 }
 
-penalized_logistic_grid_fold = function(path_data, 
-                                        path_splitted_subjects,
-                                        group_penalty = TRUE,
-                                        alphas,
-                                        lambdas,
-                                        path_save = NULL){
-  
-  # Define final results save path
-  path_save_new = file.path(path_save, basename(path_data))
-  dir.create(path_save_new, showWarnings = F, recursive = T)
-  path_final_results = file.path(path_save_new, 
-                                 paste0("Classification", ifelse(group_penalty, "_GroupPen", "_Pen"), "_Train", ".rds")
-                                 )
-  
-  # Check if final results file already exists; if so, load and return
-  if (file.exists(path_final_results)) {
-    
-    cat(green("Final results file already exists. Loading saved results.\n"))
-    
-    return(readRDS(path_final_results))
-    
-  }
-  
-  target_groups = strsplit(basename(path_data), "___")[[1]][1]
-  
-  path_fold = list.files(path_data, pattern = "Fold_", full.names = TRUE)
-  
-  # Load subjects list
-  subjects = file.path(path_splitted_subjects, target_groups) %>% 
-    list.files(pattern = "train_seed", full.names = TRUE) %>% 
-    readRDS()
-  
-  fold_results = list()
-  
-  # Model fitting
-  for (k in seq_along(path_fold)) {
-    # Define the save path for each fold result
-    path_fold_save_file = file.path(path_save_new, paste0("the_", k, "th_fold.rds"))
-    
-    # Check if fold result file exists; if so, load and skip
-    fold_item_name = paste0("the_", k, "th_fold")
-    if (file.exists(path_fold_save_file)) {
-      
-      fold_results[[fold_item_name]] = readRDS(path_fold_save_file)
-      
-      cat(green(sprintf("Fold %d already exists. Loaded saved results.\n", k)))
-      
-      next  # Skip to the next iteration
-    }
-    
-    # Sub list
-    sub_train = subjects[[paste0("Fold_", k, "_Train")]]
-    sub_valid = subjects[[paste0("Fold_", k, "_Validation")]]
-    
-    # Extract Diagnosis
-    diagnosis = extract_dignosis(
-      sub_train = sub_train,
-      sub_test = sub_valid,
-      which_group_positive = ifelse(grepl("AD", target_groups), "Dementia",
-                                    ifelse(grepl("MCI", target_groups), "MCI", "CN"))
-    )
-    
-    # Extract PC scores
-    kth_fold_scores = extract_fpca_scores_and_group_numbers(path_fold[k])
-    
-    # Define groups if group_penalty is enabled
-    groups_return = function(group_penalty, group_numbers) {
-      if (group_penalty) return(group_numbers) else return(NULL)
-    }
-    
-    # Logistic regression with penalized grid search
-    fold_results[[fold_item_name]] = penalized_logistic_grid(
-      train_X = kth_fold_scores$train_scores %>% dplyr::select(-RID) %>% as.matrix(),
-      train_y = diagnosis$diagnosis_train,
-      alphas = alphas,
-      lambdas = lambdas,
-      test_X = kth_fold_scores$test_scores %>% dplyr::select(-RID) %>% as.matrix(),
-      test_y = diagnosis$diagnosis_test,
-      groups = groups_return(group_penalty, kth_fold_scores$group_numbers),
-      plotting = FALSE
-    )
-    
-    # Save the results for the current fold
-    saveRDS(fold_results[[fold_item_name]], path_fold_save_file)
-    
-    # Completion message for each fold
-    cat(red(sprintf("Fold %d has completed.\n", k)))
-  }
-  
-  # Find intersection of available parameter combinations across all folds
-  for (k in seq_along(fold_results)) {
-    if (k == 1) {
-      combinations = names(fold_results[[k]])
-    } else {
-      combinations = intersect(combinations, names(fold_results[[k]]))
-    }
-  }
-  
-  # Filter results to only keep intersecting combinations
-  fold_results_filtered = lapply(fold_results, function(x) x[names(x) %in% combinations])
-  
-  # Calculate summary metrics
-  results = extract_summary_metrics(fold_results_filtered)
-  final_results = list(fitting_results = fold_results_filtered, metrics = results)
-  
-  
-  # Save final results
-  if (!is.null(path_save)) {
-    # Save final results
-    saveRDS(final_results, path_final_results)
-    
-    # Print completion message
-    cat(green("Final results have been successfully saved to:"), path_final_results, "\n")
-  }
-  
-  
-  # Delete each fold file
-  list.files(path_save_new, full.names = T, pattern = "th_fold") %>% file.remove
-  return(final_results)
-}
+
+
+
+
+
+
+
+
+
 
 
 

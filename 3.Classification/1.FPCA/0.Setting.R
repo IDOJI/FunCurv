@@ -2,7 +2,6 @@
 # rm(list = ls())
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 
-
 install_packages = function(packages, load=TRUE) {
   # load : load the packages after installation?
   for(pkg in packages) {
@@ -15,10 +14,14 @@ install_packages = function(packages, load=TRUE) {
     }
   }
 }
+tmp = readRDS("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FPCA/AD, CN___FunImgARCWSF_Fisher Z FC/FPCA_Train_and_TestAAL3.rds")
+
+
+
 
 List.list = list()
-List.list[[1]] = visual = c("ggpubr", "ggplot2", "ggstatsplot", "ggsignif", "rlang", "RColorBrewer", "reshape2")
-List.list[[2]] = stat = c("fda", "MASS", "caret")
+List.list[[1]] = visual = c("crayon", "ggpubr", "ggplot2", "ggstatsplot", "ggsignif", "rlang", "RColorBrewer", "reshape2", "PRROC")
+List.list[[2]] = stat = c("fda", "MASS", "caret", "pROC", "grpreg")
 List.list[[3]] = data_handling = c("tidyverse", "dplyr", "clipr", "tidyr", "readr", "caret", "readxl")
 List.list[[4]] = qmd = c("janitor", "knitr")
 List.list[[5]] = texts = c("stringr", "stringi")
@@ -27,25 +30,25 @@ List.list[[7]] = db = c("RMySQL", "DBI", "odbc", "RSQL", "RSQLite")
 List.list[[8]] = sampling = c("rsample")
 List.list[[9]] = excel = c("openxlsx")
 List.list[[10]] = others = c("beepr")
+List.list[[11]] = modeling = c("grpreg")
 
 packages_to_install_and_load = unlist(List.list)
 install_packages(packages_to_install_and_load)
 
-## 🟧dplyr =======================================================
 filter = dplyr::filter
 select = dplyr::select
 
 
 
-set_output_path <- function(input_path) {
+set_output_path = function(input_path) {
   # 운영체제 확인
-  sys_name <- Sys.info()["sysname"]
+  sys_name = Sys.info()["sysname"]
   
   # 경로 앞부분 변경
   if (sys_name == "Windows") {
-    output_path <- sub("^/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk", "E:", input_path)
+    output_path = sub("^/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk", "E:", input_path)
   } else if (sys_name == "Darwin") {  # macOS의 sysname은 'Darwin'입니다.
-    output_path <- sub("^E:", "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk", input_path)
+    output_path = sub("^E:", "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk", input_path)
   } else {
     stop("지원되지 않는 운영체제입니다.")
   }
@@ -54,47 +57,23 @@ set_output_path <- function(input_path) {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-# 🟥 Basic functions =========================================================================================================
-## 🟨 RID 변경
-change_rid = function(rid){
-  sprintf("RID_%04d", rid)
-}
-
-
-## 🟨 선택 ROI개수 벡터 
-the_number_of_repeated_roi = function(df){
-  roi_numbers <- as.numeric(sub("ROI_(\\d+)_FPC_\\d+", "\\1", colnames(df)))
-  return(roi_numbers)
-}
-
-## 🟨 경로 자동 변환 함수 정의
-convert_path <- function(input_path) {
-  if (.Platform$OS.type == "windows") {
-    # macOS 경로를 Windows 경로로 변환
-    return(gsub("/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk", "E:", input_path))
-  } else {
-    # Windows 경로를 macOS 경로로 변환
-    return(gsub("E:", "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk", input_path))
-  }
+get_file_names_without_extension = function(path_data, pattern = "fold") {
+  # 파일 목록 불러오기
+  names_fold_data = list.files(path_data, pattern = pattern, full.names = FALSE)
+  
+  # 파일 확장자 제거하고 이름만 추출
+  file_names = tools::file_path_sans_ext(names_fold_data)
+  
+  # 결과 반환
+  return(file_names)
 }
 
 
 
-
-# 🟥 sub-functions for FPCA =========================================================================================================
+# 🟩 sub-functions for FPCA =========================================================================================================
 ## 🟨 smoothing 결과에서 특정 RID 데이터만 추출
-extract_smoothed_fd <- function(fd_obj, rid){
-  rid_indices = rid %>% sort %>% change_rid()
+extract_smoothed_fd_of_specific_rids <- function(fd_obj, rid){
+  rid_indices = paste0("RID_", sprintf("%04d", sort(rid)))
   
   # Extract the relevant smoothed coefficients for the specified subjects
   # fdobj <- fdSmooth_obj$fd
@@ -114,8 +93,6 @@ extract_smoothed_fd <- function(fd_obj, rid){
     stop("Error: One or more specified RID indices are not found in the smoothed results.")
   }
 }
-
-
 
 ## 🟨 FD obj 뺄셈 정의
 subtract_fd_mean <- function(fd_obj, mean_fd) {
@@ -149,250 +126,168 @@ subtract_fd_mean <- function(fd_obj, mean_fd) {
 
 
 
-# 🟥 FPCA main functions  ============================================================================================
-## 🟩 1) 주어진 데이터에서 FPCA를 수행하는 함수 ============================================================================================
-FPCA = function(fd_obj, 
-                initial_nharm = 50,
-                portion = 0.9){
-  # 데이터에 대해 FPCA 수행
-  fpca_results <- pca.fd(fd_obj, nharm = initial_nharm, centerfns = TRUE)
-  
-  # 누적 분산 비율 계산 및 필요한 harmonic 개수 선택
-  cumulative_variance <- cumsum(fpca_results$varprop)
-  selected_harm <- which(cumulative_variance >= portion)[1]
-  
-  # 필요한 harmonic과 score 추출 (Train 데이터)
-  selected_harmonics <- fpca_results$harmonics[1:selected_harm]
-  fpc_scores <- as.data.frame(fpca_results$scores[, 1:selected_harm])
-  colnames(fpc_scores) <- paste0("FPC_", seq_len(ncol(fpc_scores)))
-  
-  combined_results = list()
-  combined_results[["fpca_results"]] = fpca_results
-  combined_results[["selected_fpc_scores"]] = fpc_scores
-  combined_results[["selected_harmonics"]] = selected_harmonics
-  
-  return(combined_results)
-}
-
-  
-
-
-## 🟩 2) 다른 FPCA harmonics에 따라 FPC score를 구하는 함수 ============================================================================================
-FPCA_scores = function(fd_obj, fpca_results){
+## 🟨 다른 FPCA harmonics에 따라 FPC score를 구하는 함수
+extract_fpca_scores_of_test_data = function(fd_obj, pca.fd_obj, nharm){
   
   # Validation 데이터 중심화 (Train 데이터의 평균 함수 사용)
   centered_test_fd <- subtract_fd_mean(
     fd_obj = fd_obj, 
-    mean_fd = fpca_results$fpca_results$meanfd
+    mean_fd = pca.fd_obj$meanfd
   )
   
   # Validation 데이터의 FPC 점수 계산
-  fpc_scores <- inprod(centered_test_fd, fpca_results$selected_harmonics)
+  fpc_scores <- inprod(centered_test_fd, pca.fd_obj$harmonics)
   
   # 필요한 harmonic 개수만 선택
   colnames(fpc_scores) <- paste0("FPC_", seq_len(ncol(fpc_scores)))
-
-  return(fpc_scores)
+  
+  return(fpc_scores[,1:nharm])
 }
 
 
 
-# 🟪 FPCA for train & valid  ============================================================================================
-FPCA_train_valid = function(fd_obj, 
-                            train_rid, 
-                            valid_rid = NULL,
-                            fpc_name = NULL){
-  # RID sorting
-  train_rid = train_rid %>% sort
-  valid_rid = valid_rid %>% sort
-  
-  # Results
-  combined_results = list()
-  
-  # Train
-  train_fd_obj = extract_smoothed_fd(fd_obj, train_rid)
-  train_fpca_results = FPCA(fd_obj = train_fd_obj)
-  combined_results[["train_fpca"]] = train_fpca_results
-  combined_results[["fpca_scores_train"]] = train_fpca_results$selected_fpc_scores %>% 
-    as.data.frame %>% 
-    setNames(paste0(fpc_name, "_", names(.))) %>% 
-    mutate(RID = train_rid) %>% 
-    relocate(RID)
-  
-  
-  # Valid
-  if(!is.null(valid_rid)){
-    valid_fd_obj = extract_smoothed_fd(fd_obj, valid_rid)
-    valid_fpca_scores = FPCA_scores(fd_obj = valid_fd_obj, fpca_results = train_fpca_results)
-    combined_results[["fpca_scores_valid"]] = valid_fpca_scores %>% 
-      as.data.frame %>% 
-      setNames(paste0(fpc_name, "_", names(.))) %>% 
-      mutate(RID = valid_rid) %>% 
-      relocate(RID)
-  }
-  return(combined_results)
-}
 
 
-# 🟪 FPCA for every ROI  ============================================================================================
-FPCA_train_valid_every_roi = function(smoothed_results, 
-                                      train_rid, 
-                                      valid_rid = NULL, 
-                                      path_save = NULL, 
-                                      file_name = NULL){
-  library(crayon)
-  library(tictoc)
+# 🟧 Classification by CV =========================================================================
+conduct_fpca_on_smoothed_results = function(demographics,
+                                            target_diagnosis = c("Dementia", "MCI"),
+                                            smoothed_data,
+                                            save_path,
+                                            fold_seed = 4649,
+                                            n_fold = 5){
+  ## 🟨 folding data by stratified k-fold CV =====================================================================================
+  demographics_new = demographics %>% 
+    filter(EPI___BAND.TYPE == "SB") %>% 
+    filter(DIAGNOSIS_FINAL %in% target_diagnosis)
   
-  train_rid = train_rid %>% sort
-  valid_rid = valid_rid %>% sort
   
-  # 최종 파일 경로 설정
-  if (!is.null(path_save) && !is.null(file_name)) {
-    final_file_path = file.path(path_save, paste0(file_name, ".rds"))
-    
-    # 최종 파일이 존재하면 계산을 건너뛰고 불러옴
-    if (file.exists(final_file_path)) {
-      cat(green("[INFO] "), yellow("Final results file already exists at "), cyan(final_file_path), "\n")
-      return(readRDS(final_file_path))
-    }
+  # stratified k-fold cross-validation 설정
+  set.seed(fold_seed)  # 결과 재현성을 위한 시드 설정
+  
+  # stratified k-fold 분할 생성
+  folds <- createFolds(demographics_new$DIAGNOSIS_FINAL, 
+                       k = n_fold, 
+                       list = TRUE, 
+                       returnTrain = TRUE)
+  
+  
+  # 각 폴드에 대해 훈련 및 테스트 데이터를 나누고, 모델링 예시
+  folded_data = list()
+  for(i in 1:n_fold){
+    # i=1
+    # 훈련 데이터와 테스트 데이터 나누기
+    train_index <- folds[[i]]
+    folded_data[[paste0("Fold_", i)]] = list(train_demo = demographics_new[train_index, ], 
+                                             test_demo = demographics_new[-train_index, ])
   }
   
-  results = list()  # 결과를 저장할 리스트 초기화
   
-  for (roi_name in names(smoothed_results)) {
-    # roi_name = names(smoothed_results)[1]
-    # 개별 ROI 파일 경로 생성
-    if (!is.null(path_save)) {
-      
-      path_save_tmp = file.path(path_save, file_name)
-      
-      dir.create(path_save_tmp, showWarnings = F, recursive = T)
-      
-      roi_file_path = file.path(path_save_tmp, paste0(roi_name, ".rds"))
-      
-    }
+  
+  
+  
+  
+  ## 🟨 Extract smoothed data & apply FPCA =============================================================================
+  fpca_train_list = list()
+  fpca_scores_train_list = list()
+  fpca_scores_test_list = list()
+  fpca_scores_rep_list = list()
+  
+  # 전체 시작 시간
+  start_time <- Sys.time()
+  
+  # for 루프 시작
+  for (ith_fold in names(folded_data)) {
     
-    # 시간 측정 시작
-    tic(roi_name)
+    # fold별 시작 시간
+    fold_start_time <- Sys.time()
     
-    if (!is.null(path_save) && file.exists(roi_file_path)) {
+    ith_fold_demo <- folded_data[[ith_fold]]
+    ith_fold_fpca_train <- list()
+    ith_fold_fpca_scores_train <- list()
+    ith_fold_fpca_scores_test <- list()
+    ith_fold_fpca_scores_rep <- c()
+    
+    for (kth_roi in names(smoothed_data)) {
       
-      # 파일이 존재하면 건너뛰고 파일을 불러옴
-      cat(green("[INFO] "), yellow("Skipping calculation for "), cyan(roi_name), yellow(": file already exists.\n"))
-      ith_result <- readRDS(roi_file_path)
+      # ROI별 시작 시간
+      roi_start_time <- Sys.time()
       
-    } else {
-      # FPCA 계산 진행
-      cat(green("[INFO] "), yellow("Starting FPCA calculation for "), cyan(roi_name), "\n")
-      ith_result <- FPCA_train_valid(fd_obj = smoothed_results[[roi_name]]$fdSmooth_obj$fd, 
-                                     train_rid, 
-                                     valid_rid,
-                                     fpc_name = roi_name)
+      # 상태 메시지 출력
+      cat(sprintf("Fold: %s, ROI: %s - FPCA 수행 중...\n", ith_fold, kth_roi))
       
-      # 결과 파일 저장 (path_export가 NULL이 아닌 경우에만)
-      if (!is.null(path_save)) {
-        saveRDS(ith_result, file = roi_file_path)
-        cat(green("[INFO] "), yellow("Saved FPCA result for "), cyan(roi_name), yellow(" to "), cyan(roi_file_path), "\n")
+      kth_smoothed_data <- smoothed_data[[kth_roi]]
+      kth_smoothed_fd <- kth_smoothed_data$fdSmooth_obj$fd
+      ith_fold_smoothed_results_train <- extract_smoothed_fd_of_specific_rids(fd_obj = kth_smoothed_fd, rid = ith_fold_demo$train_demo$RID)
+      ith_fold_smoothed_results_test <- extract_smoothed_fd_of_specific_rids(fd_obj = kth_smoothed_fd, rid = ith_fold_demo$test_demo$RID)
+      
+      # check RID
+      if (!all(ith_fold_smoothed_results_train$fdnames$reps == sort(ith_fold_smoothed_results_train$fdnames$reps))) {
+        stop("!!! check RID")
       }
-    }
-    
-    # 결과 리스트에 저장
-    results[[roi_name]] <- ith_result
-    
-    # 시간 측정 종료 및 표시
-    cat(green("[TIME] "), yellow("Time taken for "), cyan(roi_name), ":\n")
-    toc()
-  }
-  
-  # 최종 결과 저장 및 개별 ROI 파일 삭제
-  if (!is.null(path_save) && !is.null(final_file_path)) {
-    # 최종 결과 저장
-    saveRDS(results, final_file_path)
-    cat(green("[INFO] "), yellow("Saved final FPCA results to "), cyan(final_file_path), "\n")
-    
-    # 폴더 자체 삭제
-    if (dir.exists(path_save_tmp)) {
-      unlink(path_save_tmp, recursive = TRUE)
-      cat(green("[INFO] "), yellow("Deleted folder "), cyan(path_save_tmp), "\n")
-    }
-  }
-  return(results)
-}
-
-
-# 🟪 FPCA for all data  ============================================================================================
-apply_FPCA_to_all_measures = function(path_all_splitted_subjects,
-                                      path_all_smoothed_results,
-                                      path_export,
-                                      atlas_name = "AAL3"){
-  
-  paths_target_groups = list.files(path_all_splitted_subjects, full.names = T)
-  paths_target_measures = list.files(path_all_smoothed_results, full.names = T)
-  
-  for(path_target_groups in paths_target_groups){
-    # path_target_groups = paths_target_groups[1]
-    target_groups = basename(path_target_groups)
-    
-    for(path_target_measure in paths_target_measures){
-      # path_target_measure = paths_target_measures[1]
-      target_measure = basename(path_target_measure)
-      
-      path_target_export = file.path(path_export, paste0(target_groups, "___", target_measure))
-      
-      smoothed_results = path_target_measure %>% 
-        file.path(atlas_name) %>% 
-        list.files(full.names=T, pattern = "\\.rds$") %>% 
-        readRDS()
-      
-      
-    
-      # Subjects lists
-      all_train_subjects = path_target_groups %>% 
-        list.files(pattern = "all_train", full.names = T) %>% 
-        readRDS
-      test_subjects = path_target_groups %>% 
-        list.files(pattern = "test_seed", full.names = T) %>% 
-        readRDS
-      train_validation_subjects = path_target_groups %>% 
-        list.files(pattern = "train_seed", full.names = T) %>% 
-        readRDS
-      
-      # Combine Resulst
-      combined_results = list()
-      
-      # train & validation
-      all_roi_FPCA_train_validation = list()
-      for (i in 1:(length(train_validation_subjects)/2)) {
-        # i번째 fold의 train과 validation 데이터를 추출
-        train_data <- train_validation_subjects[[paste0("Fold_", i, "_Train")]]
-        validation_data <- train_validation_subjects[[paste0("Fold_", i, "_Validation")]]
-        
-        # Train & Validation
-        all_roi_FPCA_train_validation[[paste0("Fold_", i)]] = FPCA_train_valid_every_roi(smoothed_results, 
-                                                                                         train_rid = train_data$RID, 
-                                                                                         valid_rid = validation_data$RID, 
-                                                                                         path_save = path_target_export, 
-                                                                                         file_name = paste0("FPCA_Train & Validation_Fold_", i, "_",atlas_name))
+      if (!all(ith_fold_smoothed_results_test$fdnames$reps == sort(ith_fold_smoothed_results_test$fdnames$reps))) {
+        stop("!!! check RID")
       }
-      combined_results[["FPCA_Train & Validation"]] = all_roi_FPCA_train_validation
       
+      # train 데이터에 대해 FPCA 수행
+      initial_nharm <- 50
+      portion <- 0.9
+      ith_fold_fpca_train[[kth_roi]] <- kth_train_fpca_results <- pca.fd(fdobj = ith_fold_smoothed_results_train, nharm = initial_nharm, centerfns = TRUE)
       
+      # 누적 분산 비율 계산 및 필요한 harmonic 개수 선택
+      cumulative_variance <- cumsum(kth_train_fpca_results$varprop)
+      selected_harm <- which(cumulative_variance >= portion)[1]
       
+      # 필요한 harmonic과 score 추출 (Train 데이터)
+      selected_harmonics <- kth_train_fpca_results$harmonics[1:selected_harm]
+      ith_fold_fpca_scores_train[[kth_roi]] <- kth_train_fpc_scores <- as.data.frame(kth_train_fpca_results$scores[, 1:selected_harm])
+      colnames(kth_train_fpc_scores) <- paste0(kth_roi, "_FPC_", seq_len(ncol(kth_train_fpc_scores)))
+      ith_fold_fpca_scores_rep <- rep(which(names(smoothed_data) %in% kth_roi), times = ncol(kth_train_fpc_scores))
       
+      # FPCA scores of test data
+      ith_fold_fpca_scores_test[[kth_roi]] <- kth_test_fpc_scores <- extract_fpca_scores_of_test_data(fd_obj = ith_fold_smoothed_results_test, pca.fd_obj = kth_train_fpca_results, nharm = selected_harm)
       
-      # All train & Test
-      combined_results[["FPCA_All Train"]] = FPCA_train_valid_every_roi(smoothed_results, 
-                                                                        train_rid = all_train_subjects$RID, 
-                                                                        valid_rid = test_subjects$RID, 
-                                                                        path_save = path_target_export, 
-                                                                        file_name = paste0("FPCA_Train_and_Test", atlas_name))
+      # ROI별 소요 시간 출력
+      roi_end_time <- Sys.time()
+      cat(sprintf("Fold: %s, ROI: %s - 완료. 소요 시간: %.2f 초\n", ith_fold, kth_roi, as.numeric(difftime(roi_end_time, roi_start_time, units = "secs"))))
     }
     
+    fpca_train_list[[ith_fold]] <- ith_fold_fpca_train
+    fpca_scores_train_list[[ith_fold]] <- ith_fold_fpca_scores_train %>% 
+      do.call(bind_cols, .) %>% 
+      cbind(RID = ith_fold_demo$train_demo$RID, 
+            DX = ith_fold_demo$train_demo$DIAGNOSIS_FINAL, .)
+    fpca_scores_test_list[[ith_fold]] <- ith_fold_fpca_scores_test %>% 
+      do.call(bind_cols, .) %>% 
+      cbind(RID = ith_fold_demo$test_demo$RID, 
+            DX = ith_fold_demo$test_demo$DIAGNOSIS_FINAL, .)
+    fpca_scores_rep_list[[ith_fold]] <- ith_fold_fpca_scores_rep
+    
+    # fold별 소요 시간 출력
+    fold_end_time <- Sys.time()
+    cat(sprintf("Fold: %s - 완료. 소요 시간: %.2f 초\n", ith_fold, as.numeric(difftime(fold_end_time, fold_start_time, units = "secs"))))
   }
   
-  return(combined_results)
+  # 전체 소요 시간 출력
+  end_time <- Sys.time()
+  cat(sprintf("전체 FPCA 수행 완료. 총 소요 시간: %.2f 초\n", as.numeric(difftime(end_time, start_time, units = "secs"))))
+  fpca_scores = list(train = fpca_scores_train_list,
+                     test = fpca_scores_test_list,
+                     rep = fpca_scores_rep_list)
   
+  saveRDS(fpca_scores, file.path(save_path, "fpca_scores.rds"))
+  saveRDS(fpca_train_list, file.path(save_path, "fpca_train_results.rds"))
 }
+
+
+
+
+
+
+
+
+
+
+
 
 
 
