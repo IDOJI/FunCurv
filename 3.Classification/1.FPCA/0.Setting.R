@@ -171,7 +171,7 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
     filter(EPI___BAND.TYPE == "SB") %>% 
     filter(DIAGNOSIS_FINAL %in% target_diagnosis)
   
-  
+  # n_fold = 5
   # stratified k-fold cross-validation 설정
   set.seed(fold_seed)
   folds <- createFolds(demographics_new$DIAGNOSIS_FINAL, k = n_fold, list = TRUE, returnTrain = TRUE)
@@ -183,8 +183,11 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
     train_index <- folds[[i]]
     folded_data[[paste0("Fold_", i)]] <- list(train_demo = demographics_new[train_index, ], test_demo = demographics_new[-train_index, ])
   }
-  
-  
+  # folded_data$Fold_1$train_demo$DIAGNOSIS_FINAL %>% table %>% prop.table
+  # folded_data$Fold_1$test_demo$DIAGNOSIS_FINAL %>% table %>% prop.table
+  # folded_data$Fold_2$train_demo$DIAGNOSIS_FINAL %>% table %>% prop.table
+  # folded_data$Fold_2$test_demo$DIAGNOSIS_FINAL %>% table %>% prop.table
+  # 
   ## 🟨 FPCA 수행 =======================================================================================================
   fpca_train_list <- list()
   fpca_scores_train_list <- list()

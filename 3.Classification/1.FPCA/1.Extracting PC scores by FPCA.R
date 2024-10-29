@@ -13,12 +13,12 @@ save_path = "/Volumes/ADNI_SB_SSD_NTFS_4TB_Sandisk/FunCurv/3.Classification/1.FP
 
 # 🟩 FPCA ===========================================================================================
 path_smoothed_data_all = list.files(path_smoothed_data_common %>% set_output_path, full.names = T)
-target_diagnosis_list = list(c("Dementia", "MCI"), c("Dementia", "CN"), c("MCI", "CN"))
+target_diagnosis_list = list(c("Dementia", "MCI"), c("Dementia", "CN"), c("MCI", "CN"), c("Dementia", "MCI", "CN"))
 
 for(n in seq_along(path_smoothed_data_all)){
-  n = 1
+
   for(t in seq_along(target_diagnosis_list)){
-    
+    # t=4
     conduct_fpca_on_smoothed_results(path_smoothed_data = path_smoothed_data_all[n],
                                      demographics = demo,
                                      target_diagnosis = target_diagnosis_list[[t]],
