@@ -238,7 +238,7 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
       as_tibble()
     
     
-    ith_fold_fpca_scores_test$ROI_001 %>% names
+    
     # 열 이름 유지한 채로 열 기준 결합
     fpca_scores_test_list[[ith_fold]] <- ith_fold_fpca_scores_test %>%
       lapply(as.data.frame) %>% 
