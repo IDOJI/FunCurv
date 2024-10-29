@@ -127,78 +127,53 @@ subtract_fd_mean <- function(fd_obj, mean_fd) {
 
 
 ## 🟨 다른 FPCA harmonics에 따라 FPC score를 구하는 함수
-extract_fpca_scores_of_test_data = function(fd_obj, pca.fd_obj, nharm){
+conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
+                                             demographics,
+                                             target_diagnosis = c("Dementia", "MCI"),
+                                             save_path = NULL,
+                                             fold_seed = 4649,
+                                             n_fold = 5){
   
-  # Validation 데이터 중심화 (Train 데이터의 평균 함수 사용)
-  centered_test_fd <- subtract_fd_mean(
-    fd_obj = fd_obj, 
-    mean_fd = pca.fd_obj$meanfd
-  )
+  # save_path가 NULL이 아닌 경우 파일 존재 여부 확인
+  if (!is.null(save_path)) {
+    save_path_new <- file.path(save_path, paste(paste(target_diagnosis, collapse = "_"), basename(path_smoothed_data), sep = "___"))
+    
+    if (file.exists(file.path(save_path_new, "fpca_scores.rds")) && file.exists(file.path(save_path_new, "fpca_train_results.rds"))) {
+      cat("FPCA 결과 파일이 이미 존재합니다. 작업을 건너뜁니다.\n")
+      return(NULL)
+    }
+  }
   
-  # Validation 데이터의 FPC 점수 계산
-  fpc_scores <- inprod(centered_test_fd, pca.fd_obj$harmonics)
+  # 데이터 로드
+  smoothed_data <- path_smoothed_data %>% 
+    list.files(pattern = "\\.rds$", full.names = T, recursive = T) %>% 
+    readRDS()
   
-  # 필요한 harmonic 개수만 선택
-  colnames(fpc_scores) <- paste0("FPC_", seq_len(ncol(fpc_scores)))
-  
-  return(fpc_scores[,1:nharm])
-}
-
-
-
-
-
-# 🟧 Classification by CV =========================================================================
-conduct_fpca_on_smoothed_results = function(demographics,
-                                            target_diagnosis = c("Dementia", "MCI"),
-                                            smoothed_data,
-                                            save_path,
-                                            fold_seed = 4649,
-                                            n_fold = 5){
   ## 🟨 folding data by stratified k-fold CV =====================================================================================
-  demographics_new = demographics %>% 
+  demographics_new <- demographics %>% 
     filter(EPI___BAND.TYPE == "SB") %>% 
     filter(DIAGNOSIS_FINAL %in% target_diagnosis)
   
-  
   # stratified k-fold cross-validation 설정
-  set.seed(fold_seed)  # 결과 재현성을 위한 시드 설정
+  set.seed(fold_seed)
+  folds <- createFolds(demographics_new$DIAGNOSIS_FINAL, k = n_fold, list = TRUE, returnTrain = TRUE)
   
-  # stratified k-fold 분할 생성
-  folds <- createFolds(demographics_new$DIAGNOSIS_FINAL, 
-                       k = n_fold, 
-                       list = TRUE, 
-                       returnTrain = TRUE)
-  
-  
-  # 각 폴드에 대해 훈련 및 테스트 데이터를 나누고, 모델링 예시
-  folded_data = list()
-  for(i in 1:n_fold){
-    # i=1
-    # 훈련 데이터와 테스트 데이터 나누기
+  # 각 fold에 대해 훈련 및 테스트 데이터 나누기
+  folded_data <- list()
+  for(i in 1:n_fold) {
     train_index <- folds[[i]]
-    folded_data[[paste0("Fold_", i)]] = list(train_demo = demographics_new[train_index, ], 
-                                             test_demo = demographics_new[-train_index, ])
+    folded_data[[paste0("Fold_", i)]] <- list(train_demo = demographics_new[train_index, ], test_demo = demographics_new[-train_index, ])
   }
   
+  ## 🟨 FPCA 수행 =======================================================================================================
+  fpca_train_list <- list()
+  fpca_scores_train_list <- list()
+  fpca_scores_test_list <- list()
+  fpca_scores_rep_list <- list()
   
-  
-  
-  
-  
-  ## 🟨 Extract smoothed data & apply FPCA =============================================================================
-  fpca_train_list = list()
-  fpca_scores_train_list = list()
-  fpca_scores_test_list = list()
-  fpca_scores_rep_list = list()
-  
-  # 전체 시작 시간
   start_time <- Sys.time()
   
-  # for 루프 시작
   for (ith_fold in names(folded_data)) {
-    
-    # fold별 시작 시간
     fold_start_time <- Sys.time()
     
     ith_fold_demo <- folded_data[[ith_fold]]
@@ -208,11 +183,8 @@ conduct_fpca_on_smoothed_results = function(demographics,
     ith_fold_fpca_scores_rep <- c()
     
     for (kth_roi in names(smoothed_data)) {
-      
-      # ROI별 시작 시간
       roi_start_time <- Sys.time()
       
-      # 상태 메시지 출력
       cat(sprintf("Fold: %s, ROI: %s - FPCA 수행 중...\n", ith_fold, kth_roi))
       
       kth_smoothed_data <- smoothed_data[[kth_roi]]
@@ -220,7 +192,6 @@ conduct_fpca_on_smoothed_results = function(demographics,
       ith_fold_smoothed_results_train <- extract_smoothed_fd_of_specific_rids(fd_obj = kth_smoothed_fd, rid = ith_fold_demo$train_demo$RID)
       ith_fold_smoothed_results_test <- extract_smoothed_fd_of_specific_rids(fd_obj = kth_smoothed_fd, rid = ith_fold_demo$test_demo$RID)
       
-      # check RID
       if (!all(ith_fold_smoothed_results_train$fdnames$reps == sort(ith_fold_smoothed_results_train$fdnames$reps))) {
         stop("!!! check RID")
       }
@@ -228,25 +199,20 @@ conduct_fpca_on_smoothed_results = function(demographics,
         stop("!!! check RID")
       }
       
-      # train 데이터에 대해 FPCA 수행
       initial_nharm <- 50
       portion <- 0.9
       ith_fold_fpca_train[[kth_roi]] <- kth_train_fpca_results <- pca.fd(fdobj = ith_fold_smoothed_results_train, nharm = initial_nharm, centerfns = TRUE)
       
-      # 누적 분산 비율 계산 및 필요한 harmonic 개수 선택
       cumulative_variance <- cumsum(kth_train_fpca_results$varprop)
       selected_harm <- which(cumulative_variance >= portion)[1]
       
-      # 필요한 harmonic과 score 추출 (Train 데이터)
       selected_harmonics <- kth_train_fpca_results$harmonics[1:selected_harm]
       ith_fold_fpca_scores_train[[kth_roi]] <- kth_train_fpc_scores <- as.data.frame(kth_train_fpca_results$scores[, 1:selected_harm])
       colnames(kth_train_fpc_scores) <- paste0(kth_roi, "_FPC_", seq_len(ncol(kth_train_fpc_scores)))
       ith_fold_fpca_scores_rep <- rep(which(names(smoothed_data) %in% kth_roi), times = ncol(kth_train_fpc_scores))
       
-      # FPCA scores of test data
       ith_fold_fpca_scores_test[[kth_roi]] <- kth_test_fpc_scores <- extract_fpca_scores_of_test_data(fd_obj = ith_fold_smoothed_results_test, pca.fd_obj = kth_train_fpca_results, nharm = selected_harm)
       
-      # ROI별 소요 시간 출력
       roi_end_time <- Sys.time()
       cat(sprintf("Fold: %s, ROI: %s - 완료. 소요 시간: %.2f 초\n", ith_fold, kth_roi, as.numeric(difftime(roi_end_time, roi_start_time, units = "secs"))))
     }
@@ -254,33 +220,29 @@ conduct_fpca_on_smoothed_results = function(demographics,
     fpca_train_list[[ith_fold]] <- ith_fold_fpca_train
     fpca_scores_train_list[[ith_fold]] <- ith_fold_fpca_scores_train %>% 
       do.call(bind_cols, .) %>% 
-      cbind(RID = ith_fold_demo$train_demo$RID, 
-            DX = ith_fold_demo$train_demo$DIAGNOSIS_FINAL, .)
+      cbind(RID = ith_fold_demo$train_demo$RID, DX = ith_fold_demo$train_demo$DIAGNOSIS_FINAL, .)
     fpca_scores_test_list[[ith_fold]] <- ith_fold_fpca_scores_test %>% 
       do.call(bind_cols, .) %>% 
-      cbind(RID = ith_fold_demo$test_demo$RID, 
-            DX = ith_fold_demo$test_demo$DIAGNOSIS_FINAL, .)
+      cbind(RID = ith_fold_demo$test_demo$RID, DX = ith_fold_demo$test_demo$DIAGNOSIS_FINAL, .)
     fpca_scores_rep_list[[ith_fold]] <- ith_fold_fpca_scores_rep
     
-    # fold별 소요 시간 출력
     fold_end_time <- Sys.time()
     cat(sprintf("Fold: %s - 완료. 소요 시간: %.2f 초\n", ith_fold, as.numeric(difftime(fold_end_time, fold_start_time, units = "secs"))))
   }
   
-  # 전체 소요 시간 출력
   end_time <- Sys.time()
   cat(sprintf("전체 FPCA 수행 완료. 총 소요 시간: %.2f 초\n", as.numeric(difftime(end_time, start_time, units = "secs"))))
-  fpca_scores = list(train = fpca_scores_train_list,
-                     test = fpca_scores_test_list,
-                     rep = fpca_scores_rep_list)
   
-  saveRDS(fpca_scores, file.path(save_path, "fpca_scores.rds"))
-  saveRDS(fpca_train_list, file.path(save_path, "fpca_train_results.rds"))
+  fpca_scores <- list(train = fpca_scores_train_list, test = fpca_scores_test_list, rep = fpca_scores_rep_list)
+  
+  if (!is.null(save_path)) {
+    dir.create(save_path_new, showWarnings = F, recursive = T)
+    saveRDS(fpca_scores, file.path(save_path_new, "fpca_scores.rds"))
+    saveRDS(fpca_train_list, file.path(save_path_new, "fpca_train_results.rds"))
+  } else {
+    return(list(fpca_scores = fpca_scores, fpca_train_list = fpca_train_list))
+  }
 }
-
-
-
-
 
 
 
