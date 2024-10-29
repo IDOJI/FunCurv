@@ -126,26 +126,6 @@ subtract_fd_mean <- function(fd_obj, mean_fd) {
 
 
 
-## 🟨 다른 FPCA harmonics에 따라 FPC score를 구하는 함수
-extract_fpca_scores_of_test_data = function(fd_obj, pca.fd_obj, nharm){
-  
-  # Validation 데이터 중심화 (Train 데이터의 평균 함수 사용)
-  centered_test_fd <- subtract_fd_mean(
-    fd_obj = fd_obj, 
-    mean_fd = pca.fd_obj$meanfd
-  )
-  
-  # Validation 데이터의 FPC 점수 계산
-  fpc_scores <- inprod(centered_test_fd, pca.fd_obj$harmonics)
-  
-  # 필요한 harmonic 개수만 선택
-  colnames(fpc_scores) <- paste0("FPC_", seq_len(ncol(fpc_scores)))
-  
-  return(fpc_scores[,1:nharm])
-}
-
-
-
 
 
 # 🟧 Classification by CV =========================================================================
