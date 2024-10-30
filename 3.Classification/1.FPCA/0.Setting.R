@@ -87,6 +87,7 @@ extract_fpca_scores_of_test_data = function(fd_obj, pca.fd_obj, nharm){
 
 ## 🟨 smoothing 결과에서 특정 RID 데이터만 추출
 extract_smoothed_fd_of_specific_rids <- function(fd_obj, rid){
+  
   rid_indices = paste0("RID_", sprintf("%04d", sort(rid)))
   
   # Extract the relevant smoothed coefficients for the specified subjects
@@ -169,7 +170,8 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
   ## 🟨 folding data by stratified k-fold CV =====================================================================================
   demographics_new <- demographics %>% 
     filter(EPI___BAND.TYPE == "SB") %>% 
-    filter(DIAGNOSIS_FINAL %in% target_diagnosis)
+    filter(DIAGNOSIS_FINAL %in% target_diagnosis) %>% 
+    arrange(RID)
   
   # n_fold = 5
   # stratified k-fold cross-validation 설정
@@ -214,8 +216,8 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
       
       kth_smoothed_data <- smoothed_data[[kth_roi]]
       kth_smoothed_fd <- kth_smoothed_data$fdSmooth_obj$fd
-      ith_fold_smoothed_results_train <- extract_smoothed_fd_of_specific_rids(fd_obj = kth_smoothed_fd, rid = ith_fold_demo$train_demo$RID)
-      ith_fold_smoothed_results_test <- extract_smoothed_fd_of_specific_rids(fd_obj = kth_smoothed_fd, rid = ith_fold_demo$test_demo$RID)
+      ith_fold_smoothed_results_train <- extract_smoothed_fd_of_specific_rids(fd_obj = kth_smoothed_fd, rid = ith_fold_demo$train_demo$RID %>% sort)
+      ith_fold_smoothed_results_test <- extract_smoothed_fd_of_specific_rids(fd_obj = kth_smoothed_fd, rid = ith_fold_demo$test_demo$RID %>% sort)
       
       if (!all(ith_fold_smoothed_results_train$fdnames$reps == sort(ith_fold_smoothed_results_train$fdnames$reps))) {
         stop("!!! check RID")
@@ -261,8 +263,8 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
       as_tibble()
     
     
-    
     # 열 이름 유지한 채로 열 기준 결합
+    # fpca_scores_test_list[[ith_fold]] %>% View
     fpca_scores_test_list[[ith_fold]] <- ith_fold_fpca_scores_test %>%
       lapply(as.data.frame) %>% 
       # 원소의 열 이름을 고정하여 bind_cols 할 때 그대로 유지되도록 설정
@@ -280,7 +282,9 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
   end_time <- Sys.time()
   cat(sprintf("전체 FPCA 수행 완료. 총 소요 시간: %.2f 초\n", as.numeric(difftime(end_time, start_time, units = "secs"))))
   
-  fpca_scores <- list(train = fpca_scores_train_list, test = fpca_scores_test_list, rep = fpca_scores_rep_list)
+  fpca_scores <- list(train = fpca_scores_train_list, 
+                      test = fpca_scores_test_list, 
+                      rep = fpca_scores_rep_list)
   
   if (!is.null(save_path)) {
     dir.create(save_path_new, showWarnings = F, recursive = T)

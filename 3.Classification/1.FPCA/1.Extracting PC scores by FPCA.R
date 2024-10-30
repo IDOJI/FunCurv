@@ -16,9 +16,9 @@ path_smoothed_data_all = list.files(path_smoothed_data_common %>% set_output_pat
 target_diagnosis_list = list(c("Dementia", "MCI"), c("Dementia", "CN"), c("MCI", "CN"), c("Dementia", "MCI", "CN"))
 
 for(n in seq_along(path_smoothed_data_all)){
-
+  # n = 1
   for(t in seq_along(target_diagnosis_list)){
-    # t=4
+    # t = 4
     conduct_fpca_on_smoothed_results(path_smoothed_data = path_smoothed_data_all[n],
                                      demographics = demo,
                                      target_diagnosis = target_diagnosis_list[[t]],
