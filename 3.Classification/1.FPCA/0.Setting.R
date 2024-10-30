@@ -162,9 +162,11 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
   }
   
   # 데이터 로드
-  smoothed_data <- path_smoothed_data %>% 
-    list.files(pattern = "\\.rds$", full.names = T, recursive = T) %>% 
-    readRDS()
+  path_smoothed_data_rds <- path_smoothed_data %>%
+    list.files(pattern = "\\.rds$", full.names = TRUE, recursive = TRUE) %>%
+    .[[1]]
+  smoothed_data = readRDS(path_smoothed_data_rds)
+  
   
   
   ## 🟨 folding data by stratified k-fold CV =====================================================================================
