@@ -85,6 +85,8 @@ extract_fpca_scores_of_test_data = function(fd_obj, pca.fd_obj, nharm){
   return(fpc_scores[,1:nharm])
 }
 
+
+
 ## 🟨 smoothing 결과에서 특정 RID 데이터만 추출
 extract_smoothed_fd_of_specific_rids <- function(fd_obj, rid){
   
@@ -108,6 +110,8 @@ extract_smoothed_fd_of_specific_rids <- function(fd_obj, rid){
     stop("Error: One or more specified RID indices are not found in the smoothed results.")
   }
 }
+
+
 
 ## 🟨 FD obj 뺄셈 정의
 subtract_fd_mean <- function(fd_obj, mean_fd) {
@@ -142,12 +146,12 @@ subtract_fd_mean <- function(fd_obj, mean_fd) {
 
 
 ## 🟨 다른 FPCA harmonics에 따라 FPC score를 구하는 함수
-conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
-                                             demographics,
-                                             target_diagnosis = c("Dementia", "MCI"),
-                                             save_path = NULL,
-                                             fold_seed = 4649,
-                                             n_fold = 5){
+conduct_fpca_on_smoothed_results = function(path_smoothed_data,
+                                            demographics,
+                                            target_diagnosis = c("Dementia", "MCI"),
+                                            save_path = NULL,
+                                            fold_seed = 4649,
+                                            n_fold = 5){
   path_smoothed_data = path_smoothed_data %>% set_output_path
   save_path = save_path %>% set_output_path
   
@@ -161,13 +165,15 @@ conduct_fpca_on_smoothed_results <- function(path_smoothed_data,
     }
   }
   
+  
+  
   # 데이터 로드
   path_smoothed_data_rds <- path_smoothed_data %>%
     list.files(pattern = "\\.rds$", full.names = TRUE, recursive = TRUE) %>%
     .[[1]]
   smoothed_data = readRDS(path_smoothed_data_rds)
   
-  
+  file.exists(path_smoothed_data_rds)
   
   ## 🟨 folding data by stratified k-fold CV =====================================================================================
   demographics_new <- demographics %>% 
